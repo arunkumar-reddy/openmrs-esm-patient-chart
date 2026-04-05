@@ -13,7 +13,7 @@ import {
   useOrderType,
   postOrder,
   useMutatePatientOrders,
-} from '@openmrs/esm-patient-common-lib';
+} from '@arunkumar-reddy/esm-patient-common-lib';
 import {
   useLayoutType,
   useConfig,

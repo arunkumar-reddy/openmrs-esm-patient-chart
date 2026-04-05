@@ -3,7 +3,7 @@ import {
   type Order,
   type OrderBasketItem,
   type PatientWorkspace2DefinitionProps,
-} from '@openmrs/esm-patient-common-lib';
+} from '@arunkumar-reddy/esm-patient-common-lib';
 import ExportedLabResultsForm from './exported-lab-results-form.workspace';
 
 export interface LabResultsFormProps {

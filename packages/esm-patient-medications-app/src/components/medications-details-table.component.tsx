@@ -33,7 +33,7 @@ import {
   type PatientWorkspaceGroupProps,
   useLaunchWorkspaceRequiringVisit,
   useOrderBasket,
-} from '@openmrs/esm-patient-common-lib';
+} from '@arunkumar-reddy/esm-patient-common-lib';
 import {
   AddIcon,
   age,

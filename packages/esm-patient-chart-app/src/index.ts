@@ -1,6 +1,6 @@
 import { defineConfigSchema, getAsyncLifecycle, getSyncLifecycle } from '@openmrs/esm-framework';
 import * as Framework from '@openmrs/esm-framework';
-import { createDashboardLink } from '@openmrs/esm-patient-common-lib';
+import { createDashboardLink } from '@arunkumar-reddy/esm-patient-common-lib';
 import { esmPatientChartSchema } from './config-schema';
 import { moduleName } from './constants';
 import { setupCacheableRoutes, setupOfflineVisitsSync } from './offline';
@@ -194,6 +194,18 @@ export const visitContextHeader = getAsyncLifecycle(
   () => import('./visit/visits-widget/visit-context/visit-context-header.extension'),
   { featureName: 'visit-context-header', moduleName },
 );
+
+import PrintNavLink from './print/print-nav-link.component';
+
+export const printNavLink = getSyncLifecycle(PrintNavLink, {
+  featureName: 'print-patient-nav-link',
+  moduleName,
+});
+
+export const printWorkspace = getAsyncLifecycle(() => import('./print/print.workspace'), {
+  featureName: 'print-workspace',
+  moduleName,
+});
 
 export const retrospectiveDateTimePicker = getAsyncLifecycle(
   () =>

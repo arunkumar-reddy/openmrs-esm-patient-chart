@@ -7,7 +7,7 @@ import {
   type OrderableConcept,
   careSettingUuid,
   type PostDataPrepFunction,
-} from '@openmrs/esm-patient-common-lib';
+} from '@arunkumar-reddy/esm-patient-common-lib';
 
 export function createEmptyOrder(concept: OrderableConcept, visit: Visit): OrderBasketItem {
   return {

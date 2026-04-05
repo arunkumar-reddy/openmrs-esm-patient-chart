@@ -1,0 +1,39 @@
+@use '@carbon/layout' as layout;
+@use '@carbon/type' as type;
+@use '@carbon/colors' as colors;
+
+.navItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: layout.$spacing-03;
+  width: 100%;
+  padding: layout.$spacing-03 layout.$spacing-04;
+  border: none;
+  background: none;
+  color: colors.$gray-60;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: colors.$gray-20;
+    color: colors.$gray-90;
+  }
+
+  &:focus {
+    outline: 2px solid colors.$blue-60;
+    outline-offset: -2px;
+  }
+}
+
+.icon {
+  flex-shrink: 0;
+  fill: currentColor;
+}

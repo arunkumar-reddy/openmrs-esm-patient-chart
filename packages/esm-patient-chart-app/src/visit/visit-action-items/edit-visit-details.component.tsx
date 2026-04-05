@@ -14,7 +14,7 @@ import {
   invalidateVisitAndEncounterData,
   invalidateVisitByUuid,
   type PatientWorkspaceGroupProps,
-} from '@openmrs/esm-patient-common-lib';
+} from '@arunkumar-reddy/esm-patient-common-lib';
 import { useSWRConfig } from 'swr';
 
 interface EditVisitDetailsActionItemProps {

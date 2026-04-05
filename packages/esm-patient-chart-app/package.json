@@ -1,5 +1,5 @@
 {
-  "name": "@openmrs/esm-patient-chart-app",
+  "name": "@arunkumar-reddy/esm-patient-chart-app",
   "version": "12.1.0",
   "license": "MPL-2.0",
   "description": "Patient dashboard microfrontend for the OpenMRS SPA",
@@ -25,25 +25,27 @@
   "keywords": [
     "openmrs"
   ],
-  "homepage": "https://github.com/openmrs/openmrs-esm-patient-chart#readme",
+  "homepage": "https://github.com/arunkumar-reddy/openmrs-esm-patient-chart#readme",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openmrs/openmrs-esm-patient-chart.git"
+    "url": "git+https://github.com/arunkumar-reddy/openmrs-esm-patient-chart.git"
   },
   "bugs": {
-    "url": "https://github.com/openmrs/openmrs-esm-patient-chart/issues"
+    "url": "https://github.com/arunkumar-reddy/openmrs-esm-patient-chart/issues"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
     "lodash-es": "^4.17.23",
     "uuid": "^8.3.2"
   },
   "peerDependencies": {
+    "@arunkumar-reddy/esm-patient-common-lib": "*",
     "@carbon/react": "1.x",
     "@openmrs/esm-framework": "9.x",
-    "@openmrs/esm-patient-common-lib": "*",
     "dayjs": "1.x",
     "lodash-es": "4.x",
     "react": "18.x",
@@ -55,7 +57,7 @@
     "swr": "2.x"
   },
   "devDependencies": {
-    "@openmrs/esm-patient-common-lib": "workspace:*",
+    "@arunkumar-reddy/esm-patient-common-lib": "workspace:*",
     "@types/uuid": "^9.0.4",
     "openmrs": "next"
   }

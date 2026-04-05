@@ -1,0 +1,78 @@
+@use '@carbon/layout' as layout;
+@use '@carbon/type' as type;
+@use '@carbon/colors' as colors;
+
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: layout.$spacing-05;
+}
+
+.previewContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: layout.$spacing-05;
+}
+
+.title {
+  @include type.type-style('heading-01');
+  color: colors.$gray-90;
+  margin-bottom: layout.$spacing-03;
+}
+
+.generatedAt {
+  @include type.type-style('body-compact-01');
+  color: colors.$gray-60;
+  margin-bottom: layout.$spacing-05;
+}
+
+.card {
+  margin-bottom: layout.$spacing-05;
+}
+
+.patientInfo {
+  background-color: colors.$gray-10;
+  padding: layout.$spacing-04;
+  border-radius: layout.$spacing-01;
+  margin-top: layout.$spacing-03;
+
+  p {
+    @include type.type-style('body-compact-01');
+    margin-bottom: layout.$spacing-02;
+  }
+}
+
+.emptyState {
+  @include type.type-style('body-compact-01');
+  color: colors.$gray-60;
+  font-style: italic;
+  padding: layout.$spacing-05 0;
+}
+
+.actions {
+  padding: layout.$spacing-05;
+  border-top: 1px solid #e0e0e0;
+  background-color: #f4f4f4;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: layout.$spacing-03;
+
+  p {
+    @include type.type-style('body-compact-01');
+    color: colors.$gray-60;
+  }
+}

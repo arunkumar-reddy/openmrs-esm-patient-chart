@@ -5,7 +5,7 @@ import {
   invalidateVisitByUuid,
   type PatientWorkspace2DefinitionProps,
   usePatientChartStore,
-} from '@openmrs/esm-patient-common-lib';
+} from '@arunkumar-reddy/esm-patient-common-lib';
 import ExportedVisitForm from './exported-visit-form.workspace';
 
 export interface VisitFormProps {

@@ -8,7 +8,7 @@ import {
   useOrderBasket,
   useOrderType,
   type OrderBasketExtensionProps,
-} from '@openmrs/esm-patient-common-lib';
+} from '@arunkumar-reddy/esm-patient-common-lib';
 import type { ConfigObject } from '../../config-schema';
 import { LabOrderBasketItemTile } from './lab-order-basket-item-tile.component';
 import { prepTestOrderPostData } from '../api';

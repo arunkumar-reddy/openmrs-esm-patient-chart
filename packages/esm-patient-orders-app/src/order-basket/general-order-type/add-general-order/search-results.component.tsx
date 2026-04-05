@@ -15,7 +15,7 @@ import {
   type OrderableConcept,
   useOrderBasket,
   useOrderableConceptSets,
-} from '@openmrs/esm-patient-common-lib';
+} from '@arunkumar-reddy/esm-patient-common-lib';
 import { createEmptyOrder, prepOrderPostData } from '../resources';
 import styles from './search-results.scss';
 
