@@ -102,7 +102,7 @@
     {
       "name": "print-patient-info",
       "slot": "patient-chart-dashboard-slot",
-      "component": "printNavLink",
+      "component": "printDashboardLink",
       "meta": {
         "slot": "patient-chart-print-dashboard-slot",
         "path": "Print",

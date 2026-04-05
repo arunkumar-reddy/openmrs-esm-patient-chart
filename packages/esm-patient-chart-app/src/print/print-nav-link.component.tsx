@@ -1,13 +1,18 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { launchWorkspace } from '@openmrs/esm-framework';
+import { useNavigate, useParams } from 'react-router-dom';
 import styles from './print-nav-link.scss';
 
 const PrintNavLink: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { patientUuid } = useParams<{ patientUuid: string }>();
 
   const handlePrint = () => {
-    launchWorkspace('print-workspace');
+    if (patientUuid) {
+      // Navigate to the print view which will launch the workspace
+      navigate(`/patient/${patientUuid}/chart/print`);
+    }
   };
 
   return (

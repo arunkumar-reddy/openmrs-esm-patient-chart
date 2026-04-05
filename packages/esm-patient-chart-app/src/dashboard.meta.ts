@@ -13,3 +13,10 @@ export const encountersDashboardMeta: DashboardLinkConfig & { slot: string } = {
   title: 'Visits',
   icon: 'omrs-icon-calendar-heat-map',
 };
+
+export const printDashboardMeta: DashboardLinkConfig & { slot: string } = {
+  slot: 'patient-chart-print-dashboard-slot',
+  path: 'Print',
+  title: 'Print',
+  icon: 'omrs-icon-printer',
+};

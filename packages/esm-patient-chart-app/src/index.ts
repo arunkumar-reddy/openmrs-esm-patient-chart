@@ -4,7 +4,7 @@ import { createDashboardLink } from '@arunkumar-reddy/esm-patient-common-lib';
 import { esmPatientChartSchema } from './config-schema';
 import { moduleName } from './constants';
 import { setupCacheableRoutes, setupOfflineVisitsSync } from './offline';
-import { summaryDashboardMeta, encountersDashboardMeta } from './dashboard.meta';
+import { summaryDashboardMeta, encountersDashboardMeta, printDashboardMeta } from './dashboard.meta';
 import deleteVisitActionButtonComponent from './actions-buttons/delete-visit.component';
 import currentVisitSummaryComponent from './visit/visits-widget/current-visit-summary.extension';
 import markPatientAliveActionButtonComponent from './actions-buttons/mark-patient-alive.component';
@@ -195,12 +195,12 @@ export const visitContextHeader = getAsyncLifecycle(
   { featureName: 'visit-context-header', moduleName },
 );
 
-import PrintNavLink from './print/print-nav-link.component';
-
-export const printNavLink = getSyncLifecycle(PrintNavLink, {
-  featureName: 'print-patient-nav-link',
-  moduleName,
-});
+export const printDashboardLink = getSyncLifecycle(
+  createDashboardLink({
+    ...printDashboardMeta,
+  }),
+  { featureName: 'print-dashboard', moduleName },
+);
 
 export const printWorkspace = getAsyncLifecycle(() => import('./print/print.workspace'), {
   featureName: 'print-workspace',
