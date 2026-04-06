@@ -2,28 +2,22 @@ import { openmrsFetch, restBaseUrl } from '@openmrs/esm-framework';
 
 export interface Visit {
   uuid: string;
-  startDatetime: string;
-  stopDatetime: string | null;
-  visitType: {
-    uuid: string;
-    display: string;
-  };
-  location: {
-    uuid: string;
-    display: string;
-  };
-  encounters?: Encounter[];
+  display: string;
+  links: Array<{
+    rel: string;
+    uri: string;
+    resourceAlias: string;
+  }>;
 }
 
 export interface Encounter {
   uuid: string;
-  encounterDatetime: string;
-  encounterType: {
-    uuid: string;
-    display: string;
-  };
-  obs?: Obs[];
-  orders?: Order[];
+  display: string;
+  links: Array<{
+    rel: string;
+    uri: string;
+    resourceAlias: string;
+  }>;
 }
 
 export interface Obs {
@@ -71,13 +65,15 @@ export interface Order {
 export interface Patient {
   uuid: string;
   display: string;
-  identifiers: {
+  identifiers: Array<{
+    uuid: string;
     display: string;
-    identifier: string;
-    identifierType: {
-      display: string;
-    };
-  }[];
+    links: Array<{
+      rel: string;
+      uri: string;
+      resourceAlias: string;
+    }>;
+  }>;
   person: {
     uuid: string;
     display: string;
@@ -86,11 +82,52 @@ export interface Patient {
     birthdate: string;
     birthdateEstimated: boolean;
     dead: boolean;
-    deathDate?: string;
-    causeOfDeath?: any;
-    attributes?: any[];
-    addresses?: any[];
+    deathDate: any;
+    causeOfDeath: any;
+    preferredName: {
+      uuid: string;
+      display: string;
+      links: Array<{
+        rel: string;
+        uri: string;
+        resourceAlias: string;
+      }>;
+    };
+    preferredAddress: {
+      uuid: string;
+      display: string;
+      links: Array<{
+        rel: string;
+        uri: string;
+        resourceAlias: string;
+      }>;
+    };
+    attributes: Array<{
+      uuid: string;
+      display: string;
+      links: Array<{
+        rel: string;
+        uri: string;
+        resourceAlias: string;
+      }>;
+    }>;
+    voided: boolean;
+    birthtime: any;
+    deathdateEstimated: boolean;
+    links: Array<{
+      rel: string;
+      uri: string;
+      resourceAlias: string;
+    }>;
+    resourceVersion: string;
   };
+  voided: boolean;
+  links: Array<{
+    rel: string;
+    uri: string;
+    resourceAlias: string;
+  }>;
+  resourceVersion: string;
 }
 
 export interface PrintData {

@@ -51,7 +51,7 @@ export class PDFGenerator {
     yPos += 6;
 
     patient.identifiers.forEach((identifier) => {
-      this.doc.text(`${identifier.identifierType.display}: ${identifier.identifier}`, 14, yPos);
+      this.doc.text(`${identifier.display}`, 14, yPos);
       yPos += 6;
     });
 
@@ -71,16 +71,8 @@ export class PDFGenerator {
         yPos = 20;
       }
 
-      this.doc.text(`Type: ${visit.visitType.display} | Location: ${visit.location.display}`, 14, yPos);
+      this.doc.text(`Visit: ${visit.display}`, 14, yPos);
       yPos += 6;
-
-      this.doc.text(`Start: ${new Date(visit.startDatetime).toLocaleDateString()}`, 14, yPos);
-      yPos += 6;
-
-      if (visit.stopDatetime) {
-        this.doc.text(`End: ${new Date(visit.stopDatetime).toLocaleDateString()}`, 14, yPos);
-        yPos += 6;
-      }
 
       yPos += 4;
     });
@@ -101,11 +93,7 @@ export class PDFGenerator {
         yPos = 20;
       }
 
-      this.doc.text(
-        `Type: ${encounter.encounterType.display} | Date: ${new Date(encounter.encounterDatetime).toLocaleDateString()}`,
-        14,
-        yPos,
-      );
+      this.doc.text(`Encounter: ${encounter.display}`, 14, yPos);
       yPos += 6;
       yPos += 4;
     });
@@ -258,7 +246,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             <p><strong>Gender:</strong> ${patient.person.gender}</p>
             <p><strong>Age:</strong> ${patient.person.age}</p>
             <p><strong>Birth Date:</strong> ${patient.person.birthdate}</p>
-            ${patient.identifiers.map((id) => `<p><strong>${id.identifierType.display}:</strong> ${id.identifier}</p>`).join('')}
+            ${patient.identifiers.map((id) => `<p><strong>${id.display}:</strong> ${id.display}</p>`).join('')}
           </div>
         </div>
 
@@ -278,10 +266,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
                 .map(
                   (visit) => `
                 <tr>
-                  <td>${visit.visitType.display}</td>
-                  <td>${visit.location.display}</td>
-                  <td>${new Date(visit.startDatetime).toLocaleDateString()}</td>
-                  <td>${visit.stopDatetime ? new Date(visit.stopDatetime).toLocaleDateString() : 'Active'}</td>
+                  <td>${visit.display}</td>
                 </tr>
               `,
                 )
@@ -304,8 +289,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
                 .map(
                   (encounter) => `
                 <tr>
-                  <td>${encounter.encounterType.display}</td>
-                  <td>${new Date(encounter.encounterDatetime).toLocaleDateString()}</td>
+                  <td>${encounter.display}</td>
                 </tr>
               `,
                 )

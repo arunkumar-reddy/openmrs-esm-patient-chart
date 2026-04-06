@@ -169,7 +169,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
             </p>
             {patient.identifiers.map((identifier, index) => (
               <p key={index}>
-                <strong>{identifier.identifierType.display}:</strong> {identifier.identifier}
+                <strong>{identifier.display}:</strong> {identifier.display}
               </p>
             ))}
           </div>
@@ -183,17 +183,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
             <DataTable
               rows={visits.map((v) => ({
                 id: v.uuid,
-                type: v.visitType.display,
-                location: v.location.display,
-                startDate: new Date(v.startDatetime).toLocaleDateString(),
-                endDate: v.stopDatetime ? new Date(v.stopDatetime).toLocaleDateString() : t('active', 'Active'),
+                display: v.display,
               }))}
-              headers={[
-                { key: 'type', header: t('visitType', 'Visit Type') },
-                { key: 'location', header: t('location', 'Location') },
-                { key: 'startDate', header: t('startDate', 'Start Date') },
-                { key: 'endDate', header: t('endDate', 'End Date') },
-              ]}
+              headers={[{ key: 'display', header: t('visitDisplay', 'Visit') }]}
             >
               {({ rows, headers, getHeaderProps, getRowProps }) => (
                 <Table>
@@ -231,13 +223,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
             <DataTable
               rows={encounters.map((e) => ({
                 id: e.uuid,
-                type: e.encounterType.display,
-                date: new Date(e.encounterDatetime).toLocaleDateString(),
+                display: e.display,
               }))}
-              headers={[
-                { key: 'type', header: t('encounterType', 'Encounter Type') },
-                { key: 'date', header: t('date', 'Date') },
-              ]}
+              headers={[{ key: 'display', header: t('encounterDisplay', 'Encounter') }]}
             >
               {({ rows, headers, getHeaderProps, getRowProps }) => (
                 <Table>
