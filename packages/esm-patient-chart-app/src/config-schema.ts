@@ -189,6 +189,12 @@ export const esmPatientChartSchema = {
     _description: "UUID for the 'Drug' order type to fetch medications",
     _default: '131168f4-15f5-102d-96e4-000c29c2a5d7',
   },
+  drugCareSettingUuid: {
+    _type: Type.UUID,
+    _description:
+      'UUID for the care setting to filter medication orders (e.g., outpatient, inpatient). Defaults to outpatient care setting.',
+    _default: '6f0c9a92-6f24-11e3-af88-005056821db0',
+  },
 };
 
 export interface ChartConfig {
@@ -232,4 +238,5 @@ export interface ChartConfig {
   }>;
   otherConceptUuid: string;
   drugOrderTypeUUID: string;
+  drugCareSettingUuid: string;
 }

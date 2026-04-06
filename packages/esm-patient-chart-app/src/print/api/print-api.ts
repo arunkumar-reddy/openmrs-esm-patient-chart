@@ -1,4 +1,5 @@
-import { openmrsFetch, restBaseUrl } from '@openmrs/esm-framework';
+import { openmrsFetch, restBaseUrl, getConfig } from '@openmrs/esm-framework';
+import { careSettingUuid as defaultCareSettingUuid } from '@arunkumar-reddy/esm-patient-common-lib';
 
 export interface Visit {
   uuid: string;
@@ -8,6 +9,10 @@ export interface Visit {
     uri: string;
     resourceAlias: string;
   }>;
+  careSetting?: {
+    uuid: string;
+    display: string;
+  };
 }
 
 export interface Encounter {
@@ -183,9 +188,19 @@ export async function getEncounters(patientUuid: string, limit = 30): Promise<En
   return response.data.results || [];
 }
 
-export async function getMedications(patientUuid: string, limit = 30): Promise<Order[]> {
+export async function getMedications(
+  patientUuid: string,
+  limit = 30,
+  careSettingUuid?: string,
+  orderTypeUuid?: string,
+): Promise<Order[]> {
+  // Use provided careSettingUuid, or get from config, or default to the one from common-lib
+  const config = await getConfig('@arunkumar-reddy/esm-patient-chart-app');
+  const careSetting = careSettingUuid || config?.drugCareSettingUuid || defaultCareSettingUuid;
+  const orderType = orderTypeUuid || config?.drugOrderTypeUUID || '131168f4-15f5-102d-96e4-000c29c2a5d7';
+
   const response = await openmrsFetch(
-    `${restBaseUrl}/order?patient=${patientUuid}&orderType=1326859f-7789-4e50-a46d-d906c5811e62&limit=${limit}`,
+    `${restBaseUrl}/order?patient=${patientUuid}&careSetting=${careSetting}&orderTypes=${orderType}&excludeCanceledAndExpired=true&v=custom:(uuid,dosingType,orderNumber,accessionNumber,patient:ref,action,careSetting:ref,previousOrder:ref,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderType:ref,encounter:(uuid,display,visit),orderer:(uuid,display,person:(display)),orderReason,orderReasonNonCoded,orderType,urgency,instructions,commentToFulfiller,fulfillerStatus,drug:(uuid,display,strength,dosageForm:(display,uuid),concept),dose,doseUnits:ref,frequency:ref,asNeeded,asNeededCondition,quantity,quantityUnits:ref,numRefills,dosingInstructions,duration,durationUnits:ref,route:ref,brandName,dispenseAsWritten,concept)&limit=${limit}`,
     {
       headers: {
         'Content-Type': 'application/json',
@@ -201,11 +216,15 @@ export async function getMedications(patientUuid: string, limit = 30): Promise<O
 }
 
 export async function fetchPrintData(patientUuid: string): Promise<PrintData> {
+  const config = await getConfig('@arunkumar-reddy/esm-patient-chart-app');
+  const careSettingUuid = config?.drugCareSettingUuid || defaultCareSettingUuid;
+  const orderTypeUuid = config?.drugOrderTypeUUID;
+
   const results = await Promise.allSettled([
     getPatient(patientUuid),
     getVisits(patientUuid),
     getEncounters(patientUuid),
-    getMedications(patientUuid),
+    getMedications(patientUuid, 30, careSettingUuid, orderTypeUuid),
   ]);
 
   const [patientRes, visitsRes, encountersRes, medicationsRes] = results;
