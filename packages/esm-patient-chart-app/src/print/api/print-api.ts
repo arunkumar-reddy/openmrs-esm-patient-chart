@@ -164,18 +164,25 @@ export async function getMedications(patientUuid: string, limit = 30): Promise<O
 }
 
 export async function fetchPrintData(patientUuid: string): Promise<PrintData> {
-  const [patient, visits, encounters, medications] = await Promise.all([
+  const results = await Promise.allSettled([
     getPatient(patientUuid),
     getVisits(patientUuid),
     getEncounters(patientUuid),
     getMedications(patientUuid),
   ]);
 
+  const [patientRes, visitsRes, encountersRes, medicationsRes] = results;
+
+  // Patient is critical, so we still throw if it fails
+  if (patientRes.status === 'rejected') {
+    throw patientRes.reason;
+  }
+
   return {
-    patient,
-    visits,
-    encounters,
-    medications,
+    patient: patientRes.value,
+    visits: visitsRes.status === 'fulfilled' ? visitsRes.value : [],
+    encounters: encountersRes.status === 'fulfilled' ? encountersRes.value : [],
+    medications: medicationsRes.status === 'fulfilled' ? medicationsRes.value : [],
     generatedAt: new Date().toISOString(),
   };
 }
