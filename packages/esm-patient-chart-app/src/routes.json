@@ -106,9 +106,21 @@
       "meta": {
         "slot": "patient-chart-print-dashboard-slot",
         "path": "Print",
-        "icon": "PrinterIcon"
+        "icon": "omrs-icon-printer"
       },
       "order": 10,
+      "online": true,
+      "offline": true
+    },
+    {
+      "name": "print-overview-widget",
+      "slot": "patient-chart-print-dashboard-slot",
+      "component": "printOverview",
+      "order": 1,
+      "meta": {
+        "title": "Print",
+        "fullWidth": true
+      },
       "online": true,
       "offline": true
     },

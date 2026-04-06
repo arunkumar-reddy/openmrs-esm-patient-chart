@@ -96,6 +96,7 @@
   "generatedOn": "Generated on: {{date}}",
   "indication": "Indication",
   "inThePast": "In the past",
+  "launchPrintWorkspace": "Launch Print",
   "loading": "Loading",
   "location": "Location",
   "markAliveSuccessfully": "Patient marked alive successfully",

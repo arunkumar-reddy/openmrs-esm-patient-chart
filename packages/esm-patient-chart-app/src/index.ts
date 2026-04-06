@@ -207,6 +207,11 @@ export const printWorkspace = getAsyncLifecycle(() => import('./print/print.work
   moduleName,
 });
 
+export const printOverview = getAsyncLifecycle(() => import('./print/print-overview.component'), {
+  featureName: 'print-overview',
+  moduleName,
+});
+
 export const retrospectiveDateTimePicker = getAsyncLifecycle(
   () =>
     import(
