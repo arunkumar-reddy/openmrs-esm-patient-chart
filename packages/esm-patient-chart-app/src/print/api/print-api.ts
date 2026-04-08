@@ -49,6 +49,11 @@ export interface Order {
     display: string;
   };
   dosage?: string;
+  dose?: number;
+  doseUnits?: {
+    uuid: string;
+    display: string;
+  };
   frequency?: string;
   duration?: string;
   durationUnits?: string;
@@ -62,6 +67,7 @@ export interface Order {
     display: string;
   }[];
   instructions?: string;
+  dosingInstructions?: string;
   dateActivated: string;
   dateStopped?: string;
   status: string;
@@ -212,7 +218,52 @@ export async function getMedications(
     throw new Error(`Failed to fetch medications: ${response.status}`);
   }
 
-  return response.data.results || [];
+  // Transform the API response to map the dosage field correctly
+  const results = response.data.results || [];
+  return results.map((order: any) => {
+    // Build comprehensive dosage string
+    const dosageParts: string[] = [];
+
+    // Add dose with units
+    if (order.dose !== null && order.dose !== undefined) {
+      const doseValue = order.dose;
+      const doseUnitDisplay = order.doseUnits?.display || '';
+      dosageParts.push(`DOSE ${doseValue} ${doseUnitDisplay}`.trim());
+    }
+
+    // Add route
+    if (order.route?.display) {
+      dosageParts.push(order.route.display.toLowerCase());
+    }
+
+    // Add frequency
+    if (order.frequency?.display) {
+      dosageParts.push(order.frequency.display.toLowerCase());
+    }
+
+    // Add duration
+    if (order.duration !== null && order.duration !== undefined && order.durationUnits?.display) {
+      dosageParts.push(`for ${order.duration} ${order.durationUnits.display.toLowerCase()}`);
+    }
+
+    // Add dosing instructions
+    if (order.dosingInstructions) {
+      dosageParts.push(order.dosingInstructions);
+    }
+
+    const dosage = dosageParts.join(' — ');
+
+    return {
+      ...order,
+      dosage,
+      // Map the status field (action in API response)
+      status: order.action || order.status,
+      // Keep dose and doseUnits for reference
+      dose: order.dose,
+      doseUnits: order.doseUnits,
+      dosingInstructions: order.dosingInstructions,
+    };
+  });
 }
 
 export async function fetchPrintData(patientUuid: string): Promise<PrintData> {

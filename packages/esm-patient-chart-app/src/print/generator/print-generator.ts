@@ -125,11 +125,6 @@ export class PDFGenerator {
       this.doc.text(`Started: ${new Date(medication.dateActivated).toLocaleDateString()}`, 14, yPos);
       yPos += 6;
 
-      if (medication.status === 'STOPPED' && medication.dateStopped) {
-        this.doc.text(`Stopped: ${new Date(medication.dateStopped).toLocaleDateString()}`, 14, yPos);
-        yPos += 6;
-      }
-
       yPos += 4;
     });
   }
@@ -306,7 +301,6 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
                 <th>Medication</th>
                 <th>Dosage</th>
                 <th>Started</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -317,7 +311,6 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
                   <td>${med.concept?.display || 'Unknown'}</td>
                   <td>${med.dosage || '-'}</td>
                   <td>${new Date(med.dateActivated).toLocaleDateString()}</td>
-                  <td>${med.status}</td>
                 </tr>
               `,
                 )
