@@ -304,18 +304,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
         </Tile>
       </div>
 
-      <div className={styles.actions}>
-        <Stack gap={3}>
-          <Button onClick={handlePrintBrowser} disabled={generating} renderIcon={Printer}>
-            {generating ? t('printing', 'Printing...') : t('printBrowser', 'Print (Browser)')}
-          </Button>
-          <Button onClick={handleDownloadPDF} disabled={generating} renderIcon={Download} kind="secondary">
-            {t('downloadPdf', 'Download PDF')}
-          </Button>
-          <Button onClick={onClose} kind="tertiary">
-            {t('cancel', 'Cancel')}
-          </Button>
-        </Stack>
+      <div className={styles.actions} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <Button onClick={handlePrintBrowser} disabled={generating} renderIcon={Printer}>
+          {generating ? t('printing', 'Printing...') : t('printBrowser', 'Print (Browser)')}
+        </Button>
+        <Button onClick={handleDownloadPDF} disabled={generating} renderIcon={Download} kind="secondary">
+          {t('downloadPdf', 'Download PDF')}
+        </Button>
       </div>
     </div>
   );
