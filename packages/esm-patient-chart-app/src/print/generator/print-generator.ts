@@ -60,7 +60,7 @@ export class PDFGenerator {
 
   private addVisitsSection(visits: Visit[]) {
     this.doc.setFontSize(14);
-    this.doc.text('Visits', 14, 20);
+    this.doc.text('Most Recent Visit', 14, 20);
 
     this.doc.setFontSize(10);
     let yPos = 25;
@@ -246,7 +246,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
         </div>
 
         <div class="section">
-          <h2>Visits (${visits.length})</h2>
+          <h2>Most Recent Visit (${visits.length})</h2>
           <table>
             <thead>
               <tr>

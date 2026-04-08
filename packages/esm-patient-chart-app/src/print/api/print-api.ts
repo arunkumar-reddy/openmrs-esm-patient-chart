@@ -285,11 +285,19 @@ export async function fetchPrintData(patientUuid: string): Promise<PrintData> {
     throw patientRes.reason;
   }
 
+  const visits = visitsRes.status === 'fulfilled' ? visitsRes.value : [];
+  const encounters = encountersRes.status === 'fulfilled' ? encountersRes.value : [];
+  const medications = medicationsRes.status === 'fulfilled' ? medicationsRes.value : [];
+
+  // Filter to only the most recent visit
+  const mostRecentVisit = visits.length > 0 ? visits[0] : null;
+  const filteredVisits = mostRecentVisit ? [mostRecentVisit] : [];
+
   return {
     patient: patientRes.value,
-    visits: visitsRes.status === 'fulfilled' ? visitsRes.value : [],
-    encounters: encountersRes.status === 'fulfilled' ? encountersRes.value : [],
-    medications: medicationsRes.status === 'fulfilled' ? medicationsRes.value : [],
+    visits: filteredVisits,
+    encounters,
+    medications,
     generatedAt: new Date().toISOString(),
   };
 }
