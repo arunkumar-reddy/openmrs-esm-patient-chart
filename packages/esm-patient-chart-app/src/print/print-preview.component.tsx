@@ -36,6 +36,26 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
 
   const containerId = 'print-preview-container';
 
+  // Format date as DD/MM/YYYY HH:MM
+  const formatGeneratedDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
+  // Format birth date as DD/MM/YYYY
+  const formatBirthDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -148,7 +168,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
         <h1 className={styles.title}>{t('patientInfo', 'Patient Information')}</h1>
         <p className={styles.generatedAt}>
           {t('generatedOn', 'Generated on: {{date}}', {
-            date: new Date(printData.generatedAt).toLocaleString(),
+            date: formatGeneratedDate(printData.generatedAt),
           })}
         </p>
 
@@ -165,51 +185,53 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
               <strong>{t('age', 'Age')}:</strong> {patient.person.age}
             </p>
             <p>
-              <strong>{t('birthDate', 'Birth Date')}:</strong> {patient.person.birthdate}
+              <strong>{t('birthDate', 'Birth Date')}:</strong> {formatBirthDate(patient.person.birthdate)}
             </p>
-            {patient.identifiers.map((identifier, index) => (
-              <p key={index}>
-                <strong>{identifier.display}:</strong> {identifier.display}
-              </p>
-            ))}
+            {patient.identifiers
+              .filter((identifier) => !identifier.display.includes('OpenMRS ID'))
+              .map((identifier, index) => (
+                <p key={index}>
+                  <strong>{identifier.display}:</strong> {identifier.display}
+                </p>
+              ))}
           </div>
         </Tile>
 
         <Tile className={styles.card}>
-          <h3>
-            {t('visits', 'Visits')} ({visits.length})
-          </h3>
+          <h3>{t('mostRecentVisit', 'Most Recent Visit')}</h3>
           {visits.length > 0 ? (
-            <DataTable
-              rows={visits.map((v) => ({
-                id: v.uuid,
-                display: v.display,
-              }))}
-              headers={[{ key: 'display', header: t('visitDisplay', 'Visit') }]}
-            >
-              {({ rows, headers, getHeaderProps, getRowProps }) => (
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      {headers.map((header) => (
-                        <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                          {header.header}
-                        </TableHeader>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {rows.map((row) => (
-                      <TableRow key={row.id} {...getRowProps({ row })}>
-                        {row.cells.map((cell) => (
-                          <TableCell key={cell.id}>{cell.value}</TableCell>
+            <div className={styles.tableContainer}>
+              <DataTable
+                rows={visits.map((v) => ({
+                  id: v.uuid,
+                  display: v.display,
+                }))}
+                headers={[{ key: 'display', header: t('visitDisplay', 'Visit') }]}
+              >
+                {({ rows, headers, getHeaderProps, getRowProps }) => (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                            {header.header}
+                          </TableHeader>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </DataTable>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} {...getRowProps({ row })}>
+                          {row.cells.map((cell) => (
+                            <TableCell key={cell.id}>{cell.value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </div>
           ) : (
             <p className={styles.emptyState}>{t('noVisits', 'No visits recorded')}</p>
           )}
@@ -220,36 +242,38 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
             {t('encounters', 'Encounters')} ({encounters.length})
           </h3>
           {encounters.length > 0 ? (
-            <DataTable
-              rows={encounters.map((e) => ({
-                id: e.uuid,
-                display: e.display,
-              }))}
-              headers={[{ key: 'display', header: t('encounterDisplay', 'Encounter') }]}
-            >
-              {({ rows, headers, getHeaderProps, getRowProps }) => (
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      {headers.map((header) => (
-                        <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                          {header.header}
-                        </TableHeader>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {rows.map((row) => (
-                      <TableRow key={row.id} {...getRowProps({ row })}>
-                        {row.cells.map((cell) => (
-                          <TableCell key={cell.id}>{cell.value}</TableCell>
+            <div className={styles.tableContainer}>
+              <DataTable
+                rows={encounters.map((e) => ({
+                  id: e.uuid,
+                  display: e.display,
+                }))}
+                headers={[{ key: 'display', header: t('encounterDisplay', 'Encounter') }]}
+              >
+                {({ rows, headers, getHeaderProps, getRowProps }) => (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                            {header.header}
+                          </TableHeader>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </DataTable>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} {...getRowProps({ row })}>
+                          {row.cells.map((cell) => (
+                            <TableCell key={cell.id}>{cell.value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </div>
           ) : (
             <p className={styles.emptyState}>{t('noEncounters', 'No encounters recorded')}</p>
           )}
@@ -260,44 +284,46 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
             {t('medications', 'Medications')} ({medications.length})
           </h3>
           {medications.length > 0 ? (
-            <DataTable
-              rows={medications.map((m) => ({
-                id: m.uuid,
-                medication: m.concept?.display || t('unknown', 'Unknown'),
-                dosage: m.dosage || '-',
-                started: new Date(m.dateActivated).toLocaleDateString(),
-                status: m.status,
-              }))}
-              headers={[
-                { key: 'medication', header: t('medication', 'Medication') },
-                { key: 'dosage', header: t('dosage', 'Dosage') },
-                { key: 'started', header: t('started', 'Started') },
-                { key: 'status', header: t('status', 'Status') },
-              ]}
-            >
-              {({ rows, headers, getHeaderProps, getRowProps }) => (
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      {headers.map((header) => (
-                        <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                          {header.header}
-                        </TableHeader>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {rows.map((row) => (
-                      <TableRow key={row.id} {...getRowProps({ row })}>
-                        {row.cells.map((cell) => (
-                          <TableCell key={cell.id}>{cell.value}</TableCell>
+            <div className={styles.tableContainer}>
+              <DataTable
+                rows={medications.map((m) => ({
+                  id: m.uuid,
+                  medication: m.concept?.display || t('unknown', 'Unknown'),
+                  dosage: m.dosage || '-',
+                  started: new Date(m.dateActivated).toLocaleDateString(),
+                  status: m.status,
+                }))}
+                headers={[
+                  { key: 'medication', header: t('medication', 'Medication') },
+                  { key: 'dosage', header: t('dosage', 'Dosage') },
+                  { key: 'started', header: t('started', 'Started') },
+                  { key: 'status', header: t('status', 'Status') },
+                ]}
+              >
+                {({ rows, headers, getHeaderProps, getRowProps }) => (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                            {header.header}
+                          </TableHeader>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </DataTable>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} {...getRowProps({ row })}>
+                          {row.cells.map((cell) => (
+                            <TableCell key={cell.id}>{cell.value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </div>
           ) : (
             <p className={styles.emptyState}>{t('noMedications', 'No medications prescribed')}</p>
           )}

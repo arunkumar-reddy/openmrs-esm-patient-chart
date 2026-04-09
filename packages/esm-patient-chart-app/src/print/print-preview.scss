@@ -33,7 +33,7 @@
 
 .patientInfo {
   background-color: colors.$gray-10;
-  padding: layout.$spacing-04;
+  padding: layout.$spacing-04 layout.$spacing-04 layout.$spacing-04 layout.$spacing-01;
   border-radius: layout.$spacing-01;
   margin-top: layout.$spacing-03;
 
@@ -43,11 +43,16 @@
   }
 }
 
+.tableContainer {
+  margin-top: layout.$spacing-03;
+}
+
 .emptyState {
   @include type.type-style('body-compact-01');
   color: colors.$gray-60;
   font-style: italic;
   padding: layout.$spacing-05 0;
+  margin-top: layout.$spacing-03;
 }
 
 .actions {

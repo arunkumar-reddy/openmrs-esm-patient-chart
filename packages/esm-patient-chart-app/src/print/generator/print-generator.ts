@@ -13,6 +13,11 @@ export class PDFGenerator {
     });
   }
 
+  private formatDateDDMMYY(dateString: string): string {
+    const date = new Date(dateString);
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  }
+
   generatePDF(printData: PrintData): jsPDF {
     const { patient, visits, encounters, medications, generatedAt } = printData;
 
@@ -20,7 +25,15 @@ export class PDFGenerator {
     this.doc.text('Patient Information', 14, 20);
 
     this.doc.setFontSize(12);
-    this.doc.text(`Generated on: ${new Date(generatedAt).toLocaleString()}`, 14, 30);
+    // Format date as DD/MM/YYYY HH:MM
+    const date = new Date(generatedAt);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
+    this.doc.text(`Generated on: ${formattedDate}`, 14, 30);
 
     this.addPatientSection(patient);
     this.addVisitsSection(visits);
@@ -38,21 +51,27 @@ export class PDFGenerator {
     const startY = 45;
     let yPos = startY;
 
-    this.doc.text(`Name: ${patient.display}`, 14, yPos);
+    this.doc.text(`Name: ${patient.display}`, 8, yPos);
     yPos += 6;
 
-    this.doc.text(`Gender: ${patient.person.gender}`, 14, yPos);
+    this.doc.text(`Gender: ${patient.person.gender}`, 8, yPos);
     yPos += 6;
 
-    this.doc.text(`Age: ${patient.person.age}`, 14, yPos);
+    this.doc.text(`Age: ${patient.person.age}`, 8, yPos);
     yPos += 6;
 
-    this.doc.text(`Birth Date: ${patient.person.birthdate}`, 14, yPos);
+    // Format birth date as DD/MM/YYYY
+    const birthDate = new Date(patient.person.birthdate);
+    const formattedBirthDate = `${String(birthDate.getDate()).padStart(2, '0')}/${String(birthDate.getMonth() + 1).padStart(2, '0')}/${birthDate.getFullYear()}`;
+    this.doc.text(`Birth Date: ${formattedBirthDate}`, 8, yPos);
     yPos += 6;
 
+    // Display identifiers excluding OpenMRS ID
     patient.identifiers.forEach((identifier) => {
-      this.doc.text(`${identifier.display}`, 14, yPos);
-      yPos += 6;
+      if (!identifier.display.includes('OpenMRS ID')) {
+        this.doc.text(`${identifier.display}`, 8, yPos);
+        yPos += 6;
+      }
     });
 
     this.doc.addPage();
@@ -232,7 +251,15 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
       </head>
       <body>
         <h1>Patient Information</h1>
-        <p>Generated on: ${new Date(generatedAt).toLocaleString()}</p>
+        <p>Generated on: ${(() => {
+          const d = new Date(generatedAt);
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          const hours = String(d.getHours()).padStart(2, '0');
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          return `${day}/${month}/${year} ${hours}:${minutes}`;
+        })()}</p>
         
         <div class="section">
           <h2>Patient Details</h2>
@@ -240,13 +267,19 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             <p><strong>Name:</strong> ${patient.display}</p>
             <p><strong>Gender:</strong> ${patient.person.gender}</p>
             <p><strong>Age:</strong> ${patient.person.age}</p>
-            <p><strong>Birth Date:</strong> ${patient.person.birthdate}</p>
-            ${patient.identifiers.map((id) => `<p><strong>${id.display}:</strong> ${id.display}</p>`).join('')}
+            <p><strong>Birth Date:</strong> ${(() => {
+              const d = new Date(patient.person.birthdate);
+              return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+            })()}</p>
+            ${patient.identifiers
+              .filter((id) => !id.display.includes('OpenMRS ID'))
+              .map((id) => `<p><strong>${id.display}:</strong> ${id.display}</p>`)
+              .join('')}
           </div>
         </div>
 
         <div class="section">
-          <h2>Most Recent Visit (${visits.length})</h2>
+          <h2>Most Recent Visit</h2>
           <table>
             <thead>
               <tr>
