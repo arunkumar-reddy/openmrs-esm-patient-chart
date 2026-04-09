@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import type { PrintData, Patient, Visit, Encounter, Order } from '../api/print-api';
+import type { PrintData, Patient, Visit, Encounter, MedicationOrder } from '../api/print-api';
 
 export class PDFGenerator {
   private doc: jsPDF;
@@ -120,7 +120,7 @@ export class PDFGenerator {
     this.doc.addPage();
   }
 
-  private addMedicationsSection(medications: Order[]) {
+  private addMedicationsSection(medications: MedicationOrder[]) {
     this.doc.setFontSize(14);
     this.doc.text('Medications', 14, 20);
 

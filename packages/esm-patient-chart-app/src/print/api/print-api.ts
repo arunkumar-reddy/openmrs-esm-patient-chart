@@ -1,44 +1,157 @@
 import { openmrsFetch, restBaseUrl, getConfig } from '@openmrs/esm-framework';
 import { careSettingUuid as defaultCareSettingUuid } from '@arunkumar-reddy/esm-patient-common-lib';
 
-export interface Visit {
+export interface Diagnosis {
   uuid: string;
   display: string;
-  links: Array<{
-    rel: string;
-    uri: string;
-    resourceAlias: string;
-  }>;
-  careSetting?: {
-    uuid: string;
-    display: string;
+  rank: number;
+  diagnosis: {
+    coded?: {
+      display: string;
+      uuid: string;
+    };
+    nonCoded?: string;
   };
+  voided: boolean;
+  certainty?: string;
 }
 
-export interface Encounter {
-  uuid: string;
-  display: string;
-  links: Array<{
-    rel: string;
-    uri: string;
-    resourceAlias: string;
-  }>;
-}
-
-export interface Obs {
+export interface Observation {
   uuid: string;
   concept: {
     uuid: string;
     display: string;
+    conceptClass?: {
+      uuid: string;
+      display: string;
+    };
   };
+  display: string;
   value: any;
+  obsDatetime: string;
+  groupMembers?: Array<{
+    uuid: string;
+    concept: {
+      uuid: string;
+      display: string;
+    };
+    value: any;
+    display: string;
+  }>;
   groupingConcept?: {
     uuid: string;
     display: string;
   };
 }
 
-export interface Order {
+export interface EncounterOrder {
+  uuid: string;
+  orderType: {
+    uuid: string;
+    display: string;
+  };
+  concept?: {
+    uuid: string;
+    display: string;
+  };
+  drug?: {
+    uuid: string;
+    display: string;
+    name: string;
+    strength: string;
+  };
+  dose?: number;
+  doseUnits?: {
+    uuid: string;
+    display: string;
+  };
+  frequency?: {
+    uuid: string;
+    display: string;
+  };
+  duration?: number;
+  durationUnits?: {
+    uuid: string;
+    display: string;
+  };
+  quantity?: number;
+  quantityUnits?: any;
+  route?: {
+    uuid: string;
+    display: string;
+  };
+  dosingInstructions?: string;
+  instructions?: string;
+  dateActivated: string;
+  dateStopped?: string;
+  status?: string;
+  action?: string;
+}
+
+export interface EncounterProvider {
+  uuid: string;
+  display: string;
+  encounterRole?: {
+    uuid: string;
+    display: string;
+  };
+  provider?: {
+    uuid: string;
+    person?: {
+      uuid: string;
+      display: string;
+    };
+  };
+}
+
+export interface Encounter {
+  uuid: string;
+  display: string;
+  encounterDatetime: string;
+  encounterType?: {
+    uuid: string;
+    display: string;
+  };
+  form?: {
+    uuid: string;
+    display: string;
+    name: string;
+  };
+  diagnoses: Diagnosis[];
+  obs: Observation[];
+  orders: EncounterOrder[];
+  encounterProviders?: EncounterProvider[];
+  links?: Array<{
+    rel: string;
+    uri: string;
+    resourceAlias: string;
+  }>;
+}
+
+export interface Visit {
+  uuid: string;
+  display: string;
+  startDatetime: string;
+  stopDatetime?: string;
+  encounterDatetime?: string;
+  location?: {
+    uuid: string;
+    display: string;
+  };
+  visitType?: {
+    uuid: string;
+    name: string;
+    display: string;
+  };
+  encounters: Encounter[];
+  links?: Array<{
+    rel: string;
+    uri: string;
+    resourceAlias: string;
+  }>;
+}
+
+export interface MedicationOrder {
   uuid: string;
   orderType: {
     uuid: string;
@@ -145,7 +258,11 @@ export interface PrintData {
   patient: Patient;
   visits: Visit[];
   encounters: Encounter[];
-  medications: Order[];
+  medications: MedicationOrder[];
+  // Aggregated data from visits for easy access
+  allDiagnoses: Diagnosis[];
+  allObservations: Observation[];
+  allOrders: EncounterOrder[];
   generatedAt: string;
 }
 
@@ -163,9 +280,13 @@ export async function getPatient(patientUuid: string): Promise<Patient> {
   return response.data;
 }
 
+// Custom representation that includes encounters with diagnoses, observations, and orders
+const visitCustomRepresentation =
+  'custom:(uuid,display,startDatetime,stopDatetime,location,visitType:(uuid,name,display),encounters:(uuid,display,encounterDatetime,encounterType:(uuid,display),form:(uuid,display,name),diagnoses:(uuid,display,rank,diagnosis:(coded:(display,uuid),nonCoded),voided,certainty),obs:(uuid,concept:(uuid,display,conceptClass:(uuid,display)),display,value,obsDatetime,groupMembers:(uuid,concept:(uuid,display),value,display)),orders:full,encounterProviders:(uuid,display,encounterRole:(uuid,display),provider:(uuid,person:(uuid,display))),links),links)';
+
 export async function getVisits(patientUuid: string, limit = 20): Promise<Visit[]> {
   const response = await openmrsFetch(
-    `${restBaseUrl}/visit?patient=${patientUuid}&limit=${limit}&includeInactive=true`,
+    `${restBaseUrl}/visit?patient=${patientUuid}&limit=${limit}&includeInactive=true&v=${visitCustomRepresentation}`,
     {
       headers: {
         'Content-Type': 'application/json',
@@ -199,7 +320,7 @@ export async function getMedications(
   limit = 30,
   careSettingUuid?: string,
   orderTypeUuid?: string,
-): Promise<Order[]> {
+): Promise<MedicationOrder[]> {
   // Use provided careSettingUuid, or get from config, or default to the one from common-lib
   const config = await getConfig('@arunkumar-reddy/esm-patient-chart-app');
   const careSetting = careSettingUuid || config?.drugCareSettingUuid || defaultCareSettingUuid;
@@ -293,11 +414,38 @@ export async function fetchPrintData(patientUuid: string): Promise<PrintData> {
   const mostRecentVisit = visits.length > 0 ? visits[0] : null;
   const filteredVisits = mostRecentVisit ? [mostRecentVisit] : [];
 
+  // Aggregate diagnoses, observations, and orders from all encounters in the filtered visits
+  const allDiagnoses: Diagnosis[] = [];
+  const allObservations: Observation[] = [];
+  const allOrders: EncounterOrder[] = [];
+
+  filteredVisits.forEach((visit) => {
+    visit.encounters?.forEach((encounter) => {
+      // Collect diagnoses
+      if (encounter.diagnoses) {
+        allDiagnoses.push(...encounter.diagnoses.filter((d) => !d.voided));
+      }
+
+      // Collect observations
+      if (encounter.obs) {
+        allObservations.push(...encounter.obs);
+      }
+
+      // Collect orders from encounters
+      if (encounter.orders) {
+        allOrders.push(...encounter.orders);
+      }
+    });
+  });
+
   return {
     patient: patientRes.value,
     visits: filteredVisits,
     encounters,
     medications,
+    allDiagnoses,
+    allObservations,
+    allOrders,
     generatedAt: new Date().toISOString(),
   };
 }
