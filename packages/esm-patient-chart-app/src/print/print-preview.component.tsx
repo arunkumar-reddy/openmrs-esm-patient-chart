@@ -13,12 +13,13 @@ import {
   InlineLoading,
   Layer,
   Stack,
+  Section,
 } from '@carbon/react';
 import { Download, Printer } from '@carbon/react/icons';
 import { usePatientChartStore } from '@arunkumar-reddy/esm-patient-common-lib';
 import { showToast } from '@openmrs/esm-framework';
 import { fetchPrintData } from './api/print-api';
-import type { PrintData } from './api/print-api';
+import type { PrintData, Diagnosis, Observation, EncounterOrder } from './api/print-api';
 import { PDFGenerator, printViaBrowser, generatePrintableHTML } from './generator/print-generator';
 import styles from './print-preview.scss';
 
@@ -54,6 +55,37 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
+  };
+
+  // Format datetime as DD/MM/YYYY HH:MM
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
+  // Format value for display
+  const formatObservationValue = (obs: Observation) => {
+    if (obs.value === null || obs.value === undefined) return '-';
+    if (typeof obs.value === 'object' && obs.value.display) {
+      return obs.value.display;
+    }
+    return String(obs.value);
+  };
+
+  // Get diagnosis display text
+  const getDiagnosisDisplay = (diagnosis: Diagnosis) => {
+    if (diagnosis.diagnosis?.coded?.display) {
+      return diagnosis.diagnosis.coded.display;
+    }
+    if (diagnosis.diagnosis?.nonCoded) {
+      return diagnosis.diagnosis.nonCoded;
+    }
+    return diagnosis.display || '-';
   };
 
   const loadData = useCallback(async () => {
@@ -160,7 +192,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
     return null;
   }
 
-  const { patient, visits, encounters, medications } = printData;
+  const { patient, visits, encounters, medications, allDiagnoses, allObservations, allOrders } = printData;
+
+  // Helper to sort diagnoses by rank
+  const sortedDiagnoses = [...allDiagnoses].sort((a, b) => a.rank - b.rank);
 
   return (
     <div className={styles.container}>
@@ -205,8 +240,17 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
                 rows={visits.map((v) => ({
                   id: v.uuid,
                   display: v.display,
+                  type: v.visitType?.name || '-',
+                  location: v.location?.display || '-',
+                  start: formatDateTime(v.startDatetime),
+                  end: v.stopDatetime ? formatDateTime(v.stopDatetime) : 'Ongoing',
                 }))}
-                headers={[{ key: 'display', header: t('visitDisplay', 'Visit') }]}
+                headers={[
+                  { key: 'type', header: t('visitType', 'Type') },
+                  { key: 'location', header: t('location', 'Location') },
+                  { key: 'start', header: t('startDate', 'Start Date') },
+                  { key: 'end', header: t('endDate', 'End Date') },
+                ]}
               >
                 {({ rows, headers, getHeaderProps, getRowProps }) => (
                   <Table>
@@ -239,6 +283,56 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
 
         <Tile className={styles.card}>
           <h3>
+            {t('diagnoses', 'Diagnoses')} ({sortedDiagnoses.length})
+          </h3>
+          {sortedDiagnoses.length > 0 ? (
+            <div className={styles.tableContainer}>
+              <DataTable
+                rows={sortedDiagnoses.map((d) => ({
+                  id: d.uuid,
+                  rank: d.rank,
+                  diagnosis: getDiagnosisDisplay(d),
+                  certainty: d.certainty || '-',
+                  voided: d.voided ? t('voided', 'Voided') : t('active', 'Active'),
+                }))}
+                headers={[
+                  { key: 'rank', header: t('rank', 'Rank') },
+                  { key: 'diagnosis', header: t('diagnosis', 'Diagnosis') },
+                  { key: 'certainty', header: t('certainty', 'Certainty') },
+                  { key: 'voided', header: t('status', 'Status') },
+                ]}
+              >
+                {({ rows, headers, getHeaderProps, getRowProps }) => (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                            {header.header}
+                          </TableHeader>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} {...getRowProps({ row })}>
+                          {row.cells.map((cell) => (
+                            <TableCell key={cell.id}>{cell.value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </div>
+          ) : (
+            <p className={styles.emptyState}>{t('noDiagnoses', 'No diagnoses recorded')}</p>
+          )}
+        </Tile>
+
+        <Tile className={styles.card}>
+          <h3>
             {t('encounters', 'Encounters')} ({encounters.length})
           </h3>
           {encounters.length > 0 ? (
@@ -247,8 +341,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
                 rows={encounters.map((e) => ({
                   id: e.uuid,
                   display: e.display,
+                  type: e.encounterType?.display || '-',
+                  form: e.form?.name || '-',
+                  datetime: formatDateTime(e.encounterDatetime),
                 }))}
-                headers={[{ key: 'display', header: t('encounterDisplay', 'Encounter') }]}
+                headers={[
+                  { key: 'type', header: t('encounterType', 'Type') },
+                  { key: 'form', header: t('form', 'Form') },
+                  { key: 'datetime', header: t('dateTime', 'Date & Time') },
+                  { key: 'display', header: t('encounterDisplay', 'Encounter') },
+                ]}
               >
                 {({ rows, headers, getHeaderProps, getRowProps }) => (
                   <Table>
@@ -276,6 +378,108 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
             </div>
           ) : (
             <p className={styles.emptyState}>{t('noEncounters', 'No encounters recorded')}</p>
+          )}
+        </Tile>
+
+        <Tile className={styles.card}>
+          <h3>
+            {t('observations', 'Observations')} ({allObservations.length})
+          </h3>
+          {allObservations.length > 0 ? (
+            <div className={styles.tableContainer}>
+              <DataTable
+                rows={allObservations.map((obs) => ({
+                  id: obs.uuid,
+                  concept: obs.concept.display,
+                  value: formatObservationValue(obs),
+                  datetime: formatDateTime(obs.obsDatetime),
+                  groupMembers: obs.groupMembers?.length || 0,
+                }))}
+                headers={[
+                  { key: 'concept', header: t('concept', 'Concept') },
+                  { key: 'value', header: t('value', 'Value') },
+                  { key: 'datetime', header: t('obsDatetime', 'Date & Time') },
+                  { key: 'groupMembers', header: t('groupMembers', 'Group Members') },
+                ]}
+              >
+                {({ rows, headers, getHeaderProps, getRowProps }) => (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                            {header.header}
+                          </TableHeader>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} {...getRowProps({ row })}>
+                          {row.cells.map((cell) => (
+                            <TableCell key={cell.id}>{cell.value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </div>
+          ) : (
+            <p className={styles.emptyState}>{t('noObservations', 'No observations recorded')}</p>
+          )}
+        </Tile>
+
+        <Tile className={styles.card}>
+          <h3>
+            {t('orders', 'Orders')} ({allOrders.length})
+          </h3>
+          {allOrders.length > 0 ? (
+            <div className={styles.tableContainer}>
+              <DataTable
+                rows={allOrders.map((order) => ({
+                  id: order.uuid,
+                  concept: order.concept?.display || t('unknown', 'Unknown'),
+                  action: order.action,
+                  urgency: order.urgency,
+                  dateActivated: formatDateTime(order.dateActivated),
+                  status: order.status || order.action,
+                }))}
+                headers={[
+                  { key: 'concept', header: t('orderConcept', 'Concept') },
+                  { key: 'action', header: t('action', 'Action') },
+                  { key: 'urgency', header: t('urgency', 'Urgency') },
+                  { key: 'dateActivated', header: t('dateActivated', 'Date Activated') },
+                  { key: 'status', header: t('status', 'Status') },
+                ]}
+              >
+                {({ rows, headers, getHeaderProps, getRowProps }) => (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                            {header.header}
+                          </TableHeader>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} {...getRowProps({ row })}>
+                          {row.cells.map((cell) => (
+                            <TableCell key={cell.id}>{cell.value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </div>
+          ) : (
+            <p className={styles.emptyState}>{t('noOrders', 'No orders recorded')}</p>
           )}
         </Tile>
 

@@ -18,8 +18,37 @@ export class PDFGenerator {
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
   }
 
+  private formatDateTime(dateString: string): string {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  }
+
+  private getDiagnosisDisplay(diagnosis: any): string {
+    if (diagnosis.diagnosis?.coded?.display) {
+      return diagnosis.diagnosis.coded.display;
+    }
+    if (diagnosis.diagnosis?.nonCoded) {
+      return diagnosis.diagnosis.nonCoded;
+    }
+    return diagnosis.display || '-';
+  }
+
+  private formatObservationValue(obs: any): string {
+    if (obs.value === null || obs.value === undefined) return '-';
+    if (typeof obs.value === 'object' && obs.value.display) {
+      return obs.value.display;
+    }
+    return String(obs.value);
+  }
+
   generatePDF(printData: PrintData): jsPDF {
-    const { patient, visits, encounters, medications, generatedAt } = printData;
+    const { patient, visits, encounters, medications, allDiagnoses, allObservations, allOrders, generatedAt } =
+      printData;
 
     this.doc.setFontSize(20);
     this.doc.text('Patient Information', 14, 20);
@@ -37,7 +66,10 @@ export class PDFGenerator {
 
     this.addPatientSection(patient);
     this.addVisitsSection(visits);
+    this.addDiagnosesSection(allDiagnoses);
     this.addEncountersSection(encounters);
+    this.addObservationsSection(allObservations);
+    this.addOrdersSection(allOrders);
     this.addMedicationsSection(medications);
 
     return this.doc;
@@ -90,10 +122,52 @@ export class PDFGenerator {
         yPos = 20;
       }
 
-      this.doc.text(`Visit: ${visit.display}`, 14, yPos);
+      this.doc.text(`Visit Type: ${visit.visitType?.name || '-'}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Location: ${visit.location?.display || '-'}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Start: ${this.formatDateTime(visit.startDatetime)}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`End: ${visit.stopDatetime ? this.formatDateTime(visit.stopDatetime) : 'Ongoing'}`, 14, yPos);
       yPos += 6;
 
       yPos += 4;
+    });
+
+    this.doc.addPage();
+  }
+
+  private addDiagnosesSection(diagnoses: any[]) {
+    this.doc.setFontSize(14);
+    this.doc.text('Diagnoses', 14, 20);
+
+    this.doc.setFontSize(10);
+    let yPos = 25;
+
+    // Sort diagnoses by rank
+    const sortedDiagnoses = [...diagnoses].sort((a, b) => a.rank - b.rank);
+
+    if (sortedDiagnoses.length === 0) {
+      this.doc.text('No diagnoses recorded', 14, yPos);
+      this.doc.addPage();
+      return;
+    }
+
+    sortedDiagnoses.forEach((diagnosis, index) => {
+      if (index > 0 && yPos > 250) {
+        this.doc.addPage();
+        yPos = 20;
+      }
+
+      const diagnosisText = this.getDiagnosisDisplay(diagnosis);
+      this.doc.text(`Rank ${diagnosis.rank}: ${diagnosisText}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`  Certainty: ${diagnosis.certainty || '-'}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`  Status: ${diagnosis.voided ? 'Voided' : 'Active'}`, 14, yPos);
+      yPos += 6;
+
+      yPos += 2;
     });
 
     this.doc.addPage();
@@ -106,15 +180,100 @@ export class PDFGenerator {
     this.doc.setFontSize(10);
     let yPos = 25;
 
+    if (encounters.length === 0) {
+      this.doc.text('No encounters recorded', 14, yPos);
+      this.doc.addPage();
+      return;
+    }
+
     encounters.forEach((encounter, index) => {
       if (index > 0 && yPos > 250) {
         this.doc.addPage();
         yPos = 20;
       }
 
-      this.doc.text(`Encounter: ${encounter.display}`, 14, yPos);
+      this.doc.text(`Type: ${encounter.encounterType?.display || '-'}`, 14, yPos);
       yPos += 6;
+      this.doc.text(`Form: ${encounter.form?.name || '-'}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Date: ${this.formatDateTime(encounter.encounterDatetime)}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Display: ${encounter.display}`, 14, yPos);
+      yPos += 6;
+
       yPos += 4;
+    });
+
+    this.doc.addPage();
+  }
+
+  private addObservationsSection(observations: any[]) {
+    this.doc.setFontSize(14);
+    this.doc.text('Observations', 14, 20);
+
+    this.doc.setFontSize(10);
+    let yPos = 25;
+
+    if (observations.length === 0) {
+      this.doc.text('No observations recorded', 14, yPos);
+      this.doc.addPage();
+      return;
+    }
+
+    observations.forEach((obs, index) => {
+      if (index > 0 && yPos > 250) {
+        this.doc.addPage();
+        yPos = 20;
+      }
+
+      this.doc.text(`Concept: ${obs.concept.display}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Value: ${this.formatObservationValue(obs)}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Date: ${this.formatDateTime(obs.obsDatetime)}`, 14, yPos);
+      yPos += 6;
+      if (obs.groupMembers && obs.groupMembers.length > 0) {
+        this.doc.text(`  Group Members: ${obs.groupMembers.length}`, 14, yPos);
+        yPos += 6;
+      }
+
+      yPos += 2;
+    });
+
+    this.doc.addPage();
+  }
+
+  private addOrdersSection(orders: any[]) {
+    this.doc.setFontSize(14);
+    this.doc.text('Orders', 14, 20);
+
+    this.doc.setFontSize(10);
+    let yPos = 25;
+
+    if (orders.length === 0) {
+      this.doc.text('No orders recorded', 14, yPos);
+      this.doc.addPage();
+      return;
+    }
+
+    orders.forEach((order, index) => {
+      if (index > 0 && yPos > 250) {
+        this.doc.addPage();
+        yPos = 20;
+      }
+
+      this.doc.text(`Concept: ${order.concept?.display || 'Unknown'}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Action: ${order.action}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Urgency: ${order.urgency}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Date Activated: ${this.formatDateTime(order.dateActivated)}`, 14, yPos);
+      yPos += 6;
+      this.doc.text(`Status: ${order.status || order.action}`, 14, yPos);
+      yPos += 6;
+
+      yPos += 2;
     });
 
     this.doc.addPage();
@@ -195,7 +354,47 @@ export async function printViaBrowser(elementId: string): Promise<void> {
 }
 
 export async function generatePrintableHTML(printData: PrintData): Promise<string> {
-  const { patient, visits, encounters, medications, generatedAt } = printData;
+  const { patient, visits, encounters, medications, allDiagnoses, allObservations, allOrders, generatedAt } = printData;
+
+  // Helper functions
+  const formatDateTime = (dateString: string) => {
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
+  const formatBirthDate = (dateString: string) => {
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const getDiagnosisDisplay = (diagnosis: any) => {
+    if (diagnosis.diagnosis?.coded?.display) {
+      return diagnosis.diagnosis.coded.display;
+    }
+    if (diagnosis.diagnosis?.nonCoded) {
+      return diagnosis.diagnosis.nonCoded;
+    }
+    return diagnosis.display || '-';
+  };
+
+  const formatObservationValue = (obs: any) => {
+    if (obs.value === null || obs.value === undefined) return '-';
+    if (typeof obs.value === 'object' && obs.value.display) {
+      return obs.value.display;
+    }
+    return String(obs.value);
+  };
+
+  // Sort diagnoses by rank
+  const sortedDiagnoses = [...allDiagnoses].sort((a, b) => a.rank - b.rank);
 
   return `
     <!DOCTYPE html>
@@ -247,19 +446,15 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             color: #666;
             margin-top: 30px;
           }
+          .empty-state {
+            color: #666;
+            font-style: italic;
+          }
         </style>
       </head>
       <body>
         <h1>Patient Information</h1>
-        <p>Generated on: ${(() => {
-          const d = new Date(generatedAt);
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = d.getFullYear();
-          const hours = String(d.getHours()).padStart(2, '0');
-          const minutes = String(d.getMinutes()).padStart(2, '0');
-          return `${day}/${month}/${year} ${hours}:${minutes}`;
-        })()}</p>
+        <p>Generated on: ${formatDateTime(generatedAt)}</p>
         
         <div class="section">
           <h2>Patient Details</h2>
@@ -267,10 +462,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             <p><strong>Name:</strong> ${patient.display}</p>
             <p><strong>Gender:</strong> ${patient.person.gender}</p>
             <p><strong>Age:</strong> ${patient.person.age}</p>
-            <p><strong>Birth Date:</strong> ${(() => {
-              const d = new Date(patient.person.birthdate);
-              return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-            })()}</p>
+            <p><strong>Birth Date:</strong> ${formatBirthDate(patient.person.birthdate)}</p>
             ${patient.identifiers
               .filter((id) => !id.display.includes('OpenMRS ID'))
               .map((id) => `<p><strong>${id.display}:</strong> ${id.display}</p>`)
@@ -290,15 +482,54 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
               </tr>
             </thead>
             <tbody>
-              ${visits
-                .map(
-                  (visit) => `
+              ${
+                visits.length > 0
+                  ? visits
+                      .map(
+                        (visit) => `
                 <tr>
-                  <td>${visit.display}</td>
+                  <td>${visit.visitType?.name || '-'}</td>
+                  <td>${visit.location?.display || '-'}</td>
+                  <td>${formatDateTime(visit.startDatetime)}</td>
+                  <td>${visit.stopDatetime ? formatDateTime(visit.stopDatetime) : 'Ongoing'}</td>
                 </tr>
               `,
-                )
-                .join('')}
+                      )
+                      .join('')
+                  : '<tr><td colspan="4" class="empty-state">No visits recorded</td></tr>'
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <h2>Diagnoses (${sortedDiagnoses.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Diagnosis</th>
+                <th>Certainty</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                sortedDiagnoses.length > 0
+                  ? sortedDiagnoses
+                      .map(
+                        (diagnosis) => `
+                <tr>
+                  <td>${diagnosis.rank}</td>
+                  <td>${getDiagnosisDisplay(diagnosis)}</td>
+                  <td>${diagnosis.certainty || '-'}</td>
+                  <td>${diagnosis.voided ? 'Voided' : 'Active'}</td>
+                </tr>
+              `,
+                      )
+                      .join('')
+                  : '<tr><td colspan="4" class="empty-state">No diagnoses recorded</td></tr>'
+              }
             </tbody>
           </table>
         </div>
@@ -309,19 +540,94 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             <thead>
               <tr>
                 <th>Type</th>
-                <th>Date</th>
+                <th>Form</th>
+                <th>Date & Time</th>
+                <th>Display</th>
               </tr>
             </thead>
             <tbody>
-              ${encounters
-                .map(
-                  (encounter) => `
+              ${
+                encounters.length > 0
+                  ? encounters
+                      .map(
+                        (encounter) => `
                 <tr>
+                  <td>${encounter.encounterType?.display || '-'}</td>
+                  <td>${encounter.form?.name || '-'}</td>
+                  <td>${formatDateTime(encounter.encounterDatetime)}</td>
                   <td>${encounter.display}</td>
                 </tr>
               `,
-                )
-                .join('')}
+                      )
+                      .join('')
+                  : '<tr><td colspan="4" class="empty-state">No encounters recorded</td></tr>'
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <h2>Observations (${allObservations.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Concept</th>
+                <th>Value</th>
+                <th>Date & Time</th>
+                <th>Group Members</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                allObservations.length > 0
+                  ? allObservations
+                      .map(
+                        (obs) => `
+                <tr>
+                  <td>${obs.concept.display}</td>
+                  <td>${formatObservationValue(obs)}</td>
+                  <td>${formatDateTime(obs.obsDatetime)}</td>
+                  <td>${obs.groupMembers?.length || 0}</td>
+                </tr>
+              `,
+                      )
+                      .join('')
+                  : '<tr><td colspan="4" class="empty-state">No observations recorded</td></tr>'
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <h2>Orders (${allOrders.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Concept</th>
+                <th>Action</th>
+                <th>Urgency</th>
+                <th>Date Activated</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                allOrders.length > 0
+                  ? allOrders
+                      .map(
+                        (order) => `
+                <tr>
+                  <td>${order.concept?.display || 'Unknown'}</td>
+                  <td>${order.action}</td>
+                  <td>${order.urgency}</td>
+                  <td>${formatDateTime(order.dateActivated)}</td>
+                  <td>${order.status || order.action}</td>
+                </tr>
+              `,
+                      )
+                      .join('')
+                  : '<tr><td colspan="5" class="empty-state">No orders recorded</td></tr>'
+              }
             </tbody>
           </table>
         </div>
@@ -334,20 +640,26 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
                 <th>Medication</th>
                 <th>Dosage</th>
                 <th>Started</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              ${medications
-                .map(
-                  (med) => `
+              ${
+                medications.length > 0
+                  ? medications
+                      .map(
+                        (med) => `
                 <tr>
                   <td>${med.concept?.display || 'Unknown'}</td>
                   <td>${med.dosage || '-'}</td>
                   <td>${new Date(med.dateActivated).toLocaleDateString()}</td>
+                  <td>${med.status}</td>
                 </tr>
               `,
-                )
-                .join('')}
+                      )
+                      .join('')
+                  : '<tr><td colspan="4" class="empty-state">No medications prescribed</td></tr>'
+              }
             </tbody>
           </table>
         </div>

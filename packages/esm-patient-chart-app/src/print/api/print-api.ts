@@ -46,7 +46,9 @@ export interface Observation {
 
 export interface EncounterOrder {
   uuid: string;
-  orderType: {
+  orderNumber: string;
+  accessionNumber?: string;
+  patient?: {
     uuid: string;
     display: string;
   };
@@ -54,12 +56,45 @@ export interface EncounterOrder {
     uuid: string;
     display: string;
   };
-  drug?: {
+  action: string;
+  careSetting?: {
+    uuid: string;
+    name: string;
+    description: string;
+    display: string;
+  };
+  previousOrder?: any;
+  dateActivated: string;
+  scheduledDate?: string;
+  dateStopped?: string;
+  autoExpireDate?: string;
+  encounter?: {
+    uuid: string;
+    display: string;
+  };
+  orderer?: {
+    uuid: string;
+    display: string;
+  };
+  orderReason?: any;
+  orderReasonNonCoded?: string;
+  orderType: {
     uuid: string;
     display: string;
     name: string;
-    strength: string;
+    javaClassName: string;
   };
+  urgency: string;
+  instructions?: string;
+  commentToFulfiller?: string;
+  display: string;
+  fulfillerStatus?: string;
+  fulfillerComment?: string;
+  drug?: {
+    uuid: string;
+    display: string;
+  };
+  dosingType?: string;
   dose?: number;
   doseUnits?: {
     uuid: string;
@@ -69,23 +104,25 @@ export interface EncounterOrder {
     uuid: string;
     display: string;
   };
+  asNeeded: boolean;
+  asNeededCondition?: any;
+  quantity?: number;
+  quantityUnits?: any;
+  numRefills: number;
+  dosingInstructions?: string;
   duration?: number;
   durationUnits?: {
     uuid: string;
     display: string;
   };
-  quantity?: number;
-  quantityUnits?: any;
   route?: {
     uuid: string;
     display: string;
   };
-  dosingInstructions?: string;
-  instructions?: string;
-  dateActivated: string;
-  dateStopped?: string;
+  brandName?: string;
+  dispenseAsWritten: boolean;
+  type: string;
   status?: string;
-  action?: string;
 }
 
 export interface EncounterProvider {
@@ -281,12 +318,13 @@ export async function getPatient(patientUuid: string): Promise<Patient> {
 }
 
 // Custom representation that includes encounters with diagnoses, observations, and orders
+// Based on the sample API response structure
 const visitCustomRepresentation =
-  'custom:(uuid,display,startDatetime,stopDatetime,location,visitType:(uuid,name,display),encounters:(uuid,display,encounterDatetime,encounterType:(uuid,display),form:(uuid,display,name),diagnoses:(uuid,display,rank,diagnosis:(coded:(display,uuid),nonCoded),voided,certainty),obs:(uuid,concept:(uuid,display,conceptClass:(uuid,display)),display,value,obsDatetime,groupMembers:(uuid,concept:(uuid,display),value,display)),orders:full,encounterProviders:(uuid,display,encounterRole:(uuid,display),provider:(uuid,person:(uuid,display))),links),links)';
+  'custom:(uuid,location,encounters:(uuid,diagnoses:(uuid,display,rank,diagnosis,certainty,voided),form:(uuid,display,name,description,encounterType,version,resources:(uuid,display,name,valueReference)),encounterDatetime,orders:full,obs:(uuid,concept:(uuid,display,conceptClass:(uuid,display)),display,groupMembers:(uuid,concept:(uuid,display),value:(uuid,display),display),value,obsDatetime),encounterType:(uuid,display,viewPrivilege,editPrivilege),encounterProviders:(uuid,display,encounterRole:(uuid,display),provider:(uuid,person:(uuid,display)))),visitType:(uuid,name,display),startDatetime,stopDatetime,patient,attributes:(attributeType:ref,display,uuid,value))';
 
-export async function getVisits(patientUuid: string, limit = 20): Promise<Visit[]> {
+export async function getVisits(patientUuid: string, limit = 10, startIndex = 0): Promise<Visit[]> {
   const response = await openmrsFetch(
-    `${restBaseUrl}/visit?patient=${patientUuid}&limit=${limit}&includeInactive=true&v=${visitCustomRepresentation}`,
+    `${restBaseUrl}/visit?patient=${patientUuid}&v=${visitCustomRepresentation}&limit=${limit}&startIndex=${startIndex}&totalCount=true`,
     {
       headers: {
         'Content-Type': 'application/json',
@@ -395,11 +433,10 @@ export async function fetchPrintData(patientUuid: string): Promise<PrintData> {
   const results = await Promise.allSettled([
     getPatient(patientUuid),
     getVisits(patientUuid),
-    getEncounters(patientUuid),
     getMedications(patientUuid, 30, careSettingUuid, orderTypeUuid),
   ]);
 
-  const [patientRes, visitsRes, encountersRes, medicationsRes] = results;
+  const [patientRes, visitsRes, medicationsRes] = results;
 
   // Patient is critical, so we still throw if it fails
   if (patientRes.status === 'rejected') {
@@ -407,12 +444,14 @@ export async function fetchPrintData(patientUuid: string): Promise<PrintData> {
   }
 
   const visits = visitsRes.status === 'fulfilled' ? visitsRes.value : [];
-  const encounters = encountersRes.status === 'fulfilled' ? encountersRes.value : [];
   const medications = medicationsRes.status === 'fulfilled' ? medicationsRes.value : [];
 
   // Filter to only the most recent visit
   const mostRecentVisit = visits.length > 0 ? visits[0] : null;
   const filteredVisits = mostRecentVisit ? [mostRecentVisit] : [];
+
+  // Get encounters from the most recent visit
+  const encounters: Encounter[] = mostRecentVisit?.encounters || [];
 
   // Aggregate diagnoses, observations, and orders from all encounters in the filtered visits
   const allDiagnoses: Diagnosis[] = [];
