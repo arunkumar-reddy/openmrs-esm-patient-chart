@@ -47,8 +47,7 @@ export class PDFGenerator {
   }
 
   generatePDF(printData: PrintData): jsPDF {
-    const { patient, visits, encounters, medications, allDiagnoses, allObservations, allOrders, generatedAt } =
-      printData;
+    const { patient, visits, medications, allDiagnoses, allObservations, allOrders, generatedAt } = printData;
 
     this.doc.setFontSize(20);
     this.doc.text('Patient Information', 14, 20);
@@ -67,7 +66,6 @@ export class PDFGenerator {
     this.addPatientSection(patient);
     this.addVisitsSection(visits);
     this.addDiagnosesSection(allDiagnoses);
-    this.addEncountersSection(encounters);
     this.addObservationsSection(allObservations);
     this.addOrdersSection(allOrders);
     this.addMedicationsSection(medications);
@@ -173,40 +171,6 @@ export class PDFGenerator {
     this.doc.addPage();
   }
 
-  private addEncountersSection(encounters: Encounter[]) {
-    this.doc.setFontSize(14);
-    this.doc.text('Encounters', 14, 20);
-
-    this.doc.setFontSize(10);
-    let yPos = 25;
-
-    if (encounters.length === 0) {
-      this.doc.text('No encounters recorded', 14, yPos);
-      this.doc.addPage();
-      return;
-    }
-
-    encounters.forEach((encounter, index) => {
-      if (index > 0 && yPos > 250) {
-        this.doc.addPage();
-        yPos = 20;
-      }
-
-      this.doc.text(`Type: ${encounter.encounterType?.display || '-'}`, 14, yPos);
-      yPos += 6;
-      this.doc.text(`Form: ${encounter.form?.name || '-'}`, 14, yPos);
-      yPos += 6;
-      this.doc.text(`Date: ${this.formatDateTime(encounter.encounterDatetime)}`, 14, yPos);
-      yPos += 6;
-      this.doc.text(`Display: ${encounter.display}`, 14, yPos);
-      yPos += 6;
-
-      yPos += 4;
-    });
-
-    this.doc.addPage();
-  }
-
   private addObservationsSection(observations: any[]) {
     this.doc.setFontSize(14);
     this.doc.text('Observations', 14, 20);
@@ -264,13 +228,41 @@ export class PDFGenerator {
 
       this.doc.text(`Concept: ${order.concept?.display || 'Unknown'}`, 14, yPos);
       yPos += 6;
-      this.doc.text(`Action: ${order.action}`, 14, yPos);
-      yPos += 6;
-      this.doc.text(`Urgency: ${order.urgency}`, 14, yPos);
-      yPos += 6;
+
+      // Build dosage string similar to medications
+      const dosageParts: string[] = [];
+
+      if (order.dose !== null && order.dose !== undefined) {
+        const doseUnitDisplay = order.doseUnits?.display || '';
+        dosageParts.push(`${order.dose} ${doseUnitDisplay}`.trim());
+      }
+
+      if (order.route?.display) {
+        dosageParts.push(order.route.display.toLowerCase());
+      }
+
+      if (order.frequency?.display) {
+        dosageParts.push(order.frequency.display.toLowerCase());
+      }
+
+      if (order.duration !== null && order.duration !== undefined && order.durationUnits?.display) {
+        dosageParts.push(`for ${order.duration} ${order.durationUnits.display.toLowerCase()}`);
+      }
+
+      if (order.dosingInstructions) {
+        dosageParts.push(order.dosingInstructions);
+      }
+
+      if (order.instructions) {
+        dosageParts.push(order.instructions);
+      }
+
+      if (dosageParts.length > 0) {
+        this.doc.text(`Dosage: ${dosageParts.join(' — ')}`, 14, yPos);
+        yPos += 6;
+      }
+
       this.doc.text(`Date Activated: ${this.formatDateTime(order.dateActivated)}`, 14, yPos);
-      yPos += 6;
-      this.doc.text(`Status: ${order.status || order.action}`, 14, yPos);
       yPos += 6;
 
       yPos += 2;
@@ -354,7 +346,7 @@ export async function printViaBrowser(elementId: string): Promise<void> {
 }
 
 export async function generatePrintableHTML(printData: PrintData): Promise<string> {
-  const { patient, visits, encounters, medications, allDiagnoses, allObservations, allOrders, generatedAt } = printData;
+  const { patient, visits, medications, allDiagnoses, allObservations, allOrders, generatedAt } = printData;
 
   // Helper functions
   const formatDateTime = (dateString: string) => {
@@ -535,38 +527,6 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
         </div>
 
         <div class="section">
-          <h2>Encounters (${encounters.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Form</th>
-                <th>Date & Time</th>
-                <th>Display</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                encounters.length > 0
-                  ? encounters
-                      .map(
-                        (encounter) => `
-                <tr>
-                  <td>${encounter.encounterType?.display || '-'}</td>
-                  <td>${encounter.form?.name || '-'}</td>
-                  <td>${formatDateTime(encounter.encounterDatetime)}</td>
-                  <td>${encounter.display}</td>
-                </tr>
-              `,
-                      )
-                      .join('')
-                  : '<tr><td colspan="4" class="empty-state">No encounters recorded</td></tr>'
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <div class="section">
           <h2>Observations (${allObservations.length})</h2>
           <table>
             <thead>
@@ -604,29 +564,55 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             <thead>
               <tr>
                 <th>Concept</th>
-                <th>Action</th>
-                <th>Urgency</th>
+                <th>Dosage</th>
                 <th>Date Activated</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               ${
                 allOrders.length > 0
                   ? allOrders
-                      .map(
-                        (order) => `
+                      .map((order) => {
+                        // Build dosage string similar to medications
+                        const dosageParts = [];
+
+                        if (order.dose !== null && order.dose !== undefined) {
+                          const doseUnitDisplay = order.doseUnits?.display || '';
+                          dosageParts.push(`${order.dose} ${doseUnitDisplay}`.trim());
+                        }
+
+                        if (order.route?.display) {
+                          dosageParts.push(order.route.display.toLowerCase());
+                        }
+
+                        if (order.frequency?.display) {
+                          dosageParts.push(order.frequency.display.toLowerCase());
+                        }
+
+                        if (order.duration !== null && order.duration !== undefined && order.durationUnits?.display) {
+                          dosageParts.push(`for ${order.duration} ${order.durationUnits.display.toLowerCase()}`);
+                        }
+
+                        if (order.dosingInstructions) {
+                          dosageParts.push(order.dosingInstructions);
+                        }
+
+                        if (order.instructions) {
+                          dosageParts.push(order.instructions);
+                        }
+
+                        const dosage = dosageParts.length > 0 ? dosageParts.join(' — ') : '-';
+
+                        return `
                 <tr>
                   <td>${order.concept?.display || 'Unknown'}</td>
-                  <td>${order.action}</td>
-                  <td>${order.urgency}</td>
+                  <td>${dosage}</td>
                   <td>${formatDateTime(order.dateActivated)}</td>
-                  <td>${order.status || order.action}</td>
                 </tr>
-              `,
-                      )
+              `;
+                      })
                       .join('')
-                  : '<tr><td colspan="5" class="empty-state">No orders recorded</td></tr>'
+                  : '<tr><td colspan="3" class="empty-state">No orders recorded</td></tr>'
               }
             </tbody>
           </table>

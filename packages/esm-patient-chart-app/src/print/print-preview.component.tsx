@@ -88,6 +88,45 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
     return diagnosis.display || '-';
   };
 
+  // Build dosage string for orders (similar to medications)
+  const buildOrderDosage = (order: EncounterOrder) => {
+    const dosageParts: string[] = [];
+
+    // Add dose with units
+    if (order.dose !== null && order.dose !== undefined) {
+      const doseValue = order.dose;
+      const doseUnitDisplay = order.doseUnits?.display || '';
+      dosageParts.push(`${doseValue} ${doseUnitDisplay}`.trim());
+    }
+
+    // Add route
+    if (order.route?.display) {
+      dosageParts.push(order.route.display.toLowerCase());
+    }
+
+    // Add frequency
+    if (order.frequency?.display) {
+      dosageParts.push(order.frequency.display.toLowerCase());
+    }
+
+    // Add duration
+    if (order.duration !== null && order.duration !== undefined && order.durationUnits?.display) {
+      dosageParts.push(`for ${order.duration} ${order.durationUnits.display.toLowerCase()}`);
+    }
+
+    // Add dosing instructions
+    if (order.dosingInstructions) {
+      dosageParts.push(order.dosingInstructions);
+    }
+
+    // Add instructions if available
+    if (order.instructions) {
+      dosageParts.push(order.instructions);
+    }
+
+    return dosageParts.join(' — ') || '-';
+  };
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -333,56 +372,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
 
         <Tile className={styles.card}>
           <h3>
-            {t('encounters', 'Encounters')} ({encounters.length})
-          </h3>
-          {encounters.length > 0 ? (
-            <div className={styles.tableContainer}>
-              <DataTable
-                rows={encounters.map((e) => ({
-                  id: e.uuid,
-                  display: e.display,
-                  type: e.encounterType?.display || '-',
-                  form: e.form?.name || '-',
-                  datetime: formatDateTime(e.encounterDatetime),
-                }))}
-                headers={[
-                  { key: 'type', header: t('encounterType', 'Type') },
-                  { key: 'form', header: t('form', 'Form') },
-                  { key: 'datetime', header: t('dateTime', 'Date & Time') },
-                  { key: 'display', header: t('encounterDisplay', 'Encounter') },
-                ]}
-              >
-                {({ rows, headers, getHeaderProps, getRowProps }) => (
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        {headers.map((header) => (
-                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                            {header.header}
-                          </TableHeader>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {rows.map((row) => (
-                        <TableRow key={row.id} {...getRowProps({ row })}>
-                          {row.cells.map((cell) => (
-                            <TableCell key={cell.id}>{cell.value}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </DataTable>
-            </div>
-          ) : (
-            <p className={styles.emptyState}>{t('noEncounters', 'No encounters recorded')}</p>
-          )}
-        </Tile>
-
-        <Tile className={styles.card}>
-          <h3>
             {t('observations', 'Observations')} ({allObservations.length})
           </h3>
           {allObservations.length > 0 ? (
@@ -441,17 +430,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
                 rows={allOrders.map((order) => ({
                   id: order.uuid,
                   concept: order.concept?.display || t('unknown', 'Unknown'),
-                  action: order.action,
-                  urgency: order.urgency,
                   dateActivated: formatDateTime(order.dateActivated),
-                  status: order.status || order.action,
+                  dosage: buildOrderDosage(order),
                 }))}
                 headers={[
                   { key: 'concept', header: t('orderConcept', 'Concept') },
-                  { key: 'action', header: t('action', 'Action') },
-                  { key: 'urgency', header: t('urgency', 'Urgency') },
+                  { key: 'dosage', header: t('dosage', 'Dosage') },
                   { key: 'dateActivated', header: t('dateActivated', 'Date Activated') },
-                  { key: 'status', header: t('status', 'Status') },
                 ]}
               >
                 {({ rows, headers, getHeaderProps, getRowProps }) => (
