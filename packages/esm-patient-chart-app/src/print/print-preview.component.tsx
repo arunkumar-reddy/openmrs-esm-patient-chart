@@ -253,15 +253,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
     return null;
   }
 
-  const {
-    patient,
-    visits,
-    encounters,
-    medications,
-    allDiagnoses = [],
-    allObservations = [],
-    allOrders = [],
-  } = printData;
+  const { patient, visits, encounters, allDiagnoses = [], allObservations = [], allOrders = [] } = printData;
 
   // Helper to sort diagnoses by rank
   const sortedDiagnoses = [...allDiagnoses].sort((a, b) => a.rank - b.rank);
@@ -305,16 +297,21 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
       <div id={containerId} className={styles.previewContent}>
         <h1 className={styles.title}>{t('patientInfo', 'Patient Information')}</h1>
         <p className={styles.generatedAt}>
-          {t('generatedOn', 'Generated on: {{date}}', {
-            date: formatGeneratedDate(printData.generatedAt),
-          })}
+          {t('generatedOn', 'Generated on:') + ' ' + formatGeneratedDate(printData.generatedAt)}
         </p>
 
         <Tile className={styles.card}>
           <h3>{t('patientDetails', 'Patient Details')}</h3>
           <div className={styles.patientInfo}>
             <p>
-              <strong>{t('name', 'Name')}:</strong> {patient.display}
+              <strong>{t('name', 'Name')}:</strong> {patient.person.preferredName.display}
+            </p>
+            <p>
+              <strong>{t('patientId', 'Patient ID')}:</strong>{' '}
+              {patient.identifiers
+                .find((id) => id.display.includes('OpenMRS ID'))
+                ?.display.replace(/.*[=:]/, '')
+                .trim() || '-'}
             </p>
             <p>
               <strong>{t('gender', 'Gender')}:</strong> {patient.person.gender}
@@ -340,17 +337,24 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
           {visits.length > 0 ? (
             <>
               <div className={styles.visitSelector}>
-                <Dropdown
-                  id="visit-selector"
-                  titleText={t('selectVisit', 'Select a visit')}
-                  label={t('selectVisitLabel', 'Choose a visit')}
-                  items={visits}
-                  itemToString={(visit: Visit) => formatVisitLabel(visit)}
-                  selectedItem={selectedVisit || undefined}
-                  onChange={({ selectedItem }) => {
-                    setSelectedVisitUuid(selectedItem?.uuid || null);
-                  }}
-                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'nowrap' }}>
+                  <span style={{ fontWeight: 400, fontSize: '1rem', lineHeight: '1.5rem', whiteSpace: 'nowrap' }}>
+                    {t('selectVisit', 'Select a visit')}:
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <Dropdown
+                      id="visit-selector"
+                      titleText=""
+                      label={t('selectVisitLabel', 'Choose a visit')}
+                      items={visits}
+                      itemToString={(visit: Visit) => formatVisitLabel(visit)}
+                      selectedItem={selectedVisit || undefined}
+                      onChange={({ selectedItem }: { selectedItem: Visit | null }) => {
+                        setSelectedVisitUuid(selectedItem?.uuid || null);
+                      }}
+                    />
+                  </div>
+                </span>
               </div>
               <div className={styles.tableContainer}>
                 <DataTable
@@ -551,56 +555,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
             </div>
           ) : (
             <p className={styles.emptyState}>{t('noOrders', 'No orders recorded')}</p>
-          )}
-        </Tile>
-
-        <Tile className={styles.card}>
-          <h3>
-            {t('medications', 'Medications')} ({medications.length})
-          </h3>
-          {medications.length > 0 ? (
-            <div className={styles.tableContainer}>
-              <DataTable
-                rows={medications.map((m) => ({
-                  id: m.uuid,
-                  medication: m.concept?.display || t('unknown', 'Unknown'),
-                  dosage: m.dosage || '-',
-                  started: new Date(m.dateActivated).toLocaleDateString(),
-                  status: m.status,
-                }))}
-                headers={[
-                  { key: 'medication', header: t('medication', 'Medication') },
-                  { key: 'dosage', header: t('dosage', 'Dosage') },
-                  { key: 'started', header: t('started', 'Started') },
-                  { key: 'status', header: t('status', 'Status') },
-                ]}
-              >
-                {({ rows, headers, getHeaderProps, getRowProps }) => (
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        {headers.map((header) => (
-                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                            {header.header}
-                          </TableHeader>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {rows.map((row) => (
-                        <TableRow key={row.id} {...getRowProps({ row })}>
-                          {row.cells.map((cell) => (
-                            <TableCell key={cell.id}>{cell.value}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </DataTable>
-            </div>
-          ) : (
-            <p className={styles.emptyState}>{t('noMedications', 'No medications prescribed')}</p>
           )}
         </Tile>
       </div>
