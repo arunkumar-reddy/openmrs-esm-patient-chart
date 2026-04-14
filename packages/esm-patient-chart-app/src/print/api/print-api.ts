@@ -446,19 +446,16 @@ export async function fetchPrintData(patientUuid: string): Promise<PrintData> {
   const visits = visitsRes.status === 'fulfilled' ? visitsRes.value : [];
   const medications = medicationsRes.status === 'fulfilled' ? medicationsRes.value : [];
 
-  // Filter to only the most recent visit
-  const mostRecentVisit = visits.length > 0 ? visits[0] : null;
-  const filteredVisits = mostRecentVisit ? [mostRecentVisit] : [];
+  // Return all visits - filtering will be done in the UI component
+  // Get encounters from all visits
+  const encounters: Encounter[] = [];
 
-  // Get encounters from the most recent visit
-  const encounters: Encounter[] = mostRecentVisit?.encounters || [];
-
-  // Aggregate diagnoses, observations, and orders from all encounters in the filtered visits
+  // Aggregate diagnoses, observations, and orders from all encounters in all visits
   const allDiagnoses: Diagnosis[] = [];
   const allObservations: Observation[] = [];
   const allOrders: EncounterOrder[] = [];
 
-  filteredVisits.forEach((visit) => {
+  visits.forEach((visit) => {
     visit.encounters?.forEach((encounter) => {
       // Collect diagnoses
       if (encounter.diagnoses) {
@@ -475,11 +472,13 @@ export async function fetchPrintData(patientUuid: string): Promise<PrintData> {
         allOrders.push(...encounter.orders);
       }
     });
+    // Collect all encounters
+    encounters.push(...(visit.encounters || []));
   });
 
   return {
     patient: patientRes.value,
-    visits: filteredVisits,
+    visits,
     encounters,
     medications,
     allDiagnoses,

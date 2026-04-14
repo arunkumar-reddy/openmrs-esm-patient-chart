@@ -47,6 +47,11 @@
   margin-top: layout.$spacing-03;
 }
 
+.visitSelector {
+  margin-bottom: layout.$spacing-04;
+  max-width: 400px;
+}
+
 .emptyState {
   @include type.type-style('body-compact-01');
   color: colors.$gray-60;

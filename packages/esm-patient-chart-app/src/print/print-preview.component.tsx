@@ -14,12 +14,13 @@ import {
   Layer,
   Stack,
   Section,
+  Dropdown,
 } from '@carbon/react';
 import { Download, Printer } from '@carbon/react/icons';
 import { usePatientChartStore } from '@arunkumar-reddy/esm-patient-common-lib';
 import { showToast } from '@openmrs/esm-framework';
 import { fetchPrintData } from './api/print-api';
-import type { PrintData, Diagnosis, Observation, EncounterOrder } from './api/print-api';
+import type { PrintData, Diagnosis, Observation, EncounterOrder, Visit } from './api/print-api';
 import { PDFGenerator, printViaBrowser, generatePrintableHTML } from './generator/print-generator';
 import styles from './print-preview.scss';
 
@@ -34,6 +35,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [selectedVisitUuid, setSelectedVisitUuid] = useState<string | null>(null);
 
   const containerId = 'print-preview-container';
 
@@ -151,11 +153,21 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
   }, [loadData]);
 
   const handlePrintBrowser = async () => {
-    if (!printData) return;
+    if (!printData || !selectedVisit) return;
 
     setGenerating(true);
     try {
-      const html = await generatePrintableHTML(printData);
+      // Create filtered print data for the selected visit
+      const filteredPrintData = {
+        ...printData,
+        visits: [selectedVisit],
+        encounters: selectedVisit.encounters,
+        allDiagnoses: filteredDiagnoses,
+        allObservations: filteredObservations,
+        allOrders: filteredOrders,
+      };
+
+      const html = await generatePrintableHTML(filteredPrintData);
 
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
@@ -183,12 +195,22 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
   };
 
   const handleDownloadPDF = async () => {
-    if (!printData) return;
+    if (!printData || !selectedVisit) return;
 
     setGenerating(true);
     try {
+      // Create filtered print data for the selected visit
+      const filteredPrintData = {
+        ...printData,
+        visits: [selectedVisit],
+        encounters: selectedVisit.encounters,
+        allDiagnoses: filteredDiagnoses,
+        allObservations: filteredObservations,
+        allOrders: filteredOrders,
+      };
+
       const generator = new PDFGenerator();
-      const pdf = generator.generatePDF(printData);
+      const pdf = generator.generatePDF(filteredPrintData);
       pdf.save(`patient-info-${patientUuid}.pdf`);
       showToast({
         kind: 'success',
@@ -231,10 +253,52 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
     return null;
   }
 
-  const { patient, visits, encounters, medications, allDiagnoses, allObservations, allOrders } = printData;
+  const {
+    patient,
+    visits,
+    encounters,
+    medications,
+    allDiagnoses = [],
+    allObservations = [],
+    allOrders = [],
+  } = printData;
 
   // Helper to sort diagnoses by rank
   const sortedDiagnoses = [...allDiagnoses].sort((a, b) => a.rank - b.rank);
+
+  // Filter data based on selected visit
+  const selectedVisit = !selectedVisitUuid
+    ? visits.length > 0
+      ? visits[0]
+      : null
+    : visits.find((v) => v.uuid === selectedVisitUuid) || null;
+
+  // Filter diagnoses, observations, and orders based on selected visit
+  const filteredDiagnoses = !selectedVisit
+    ? []
+    : sortedDiagnoses.filter((d) =>
+        new Set(selectedVisit.encounters.flatMap((enc) => enc.diagnoses.map((d) => d.uuid))).has(d.uuid),
+      );
+
+  const filteredObservations = !selectedVisit
+    ? []
+    : allObservations.filter((o) =>
+        new Set(selectedVisit.encounters.flatMap((enc) => enc.obs.map((o) => o.uuid))).has(o.uuid),
+      );
+
+  const filteredOrders = !selectedVisit
+    ? []
+    : allOrders.filter((o) =>
+        new Set(selectedVisit.encounters.flatMap((enc) => enc.orders.map((o) => o.uuid))).has(o.uuid),
+      );
+
+  // Format visit label for dropdown - simplified for easy scanning
+  const formatVisitLabel = (visit: Visit) => {
+    const startDate = formatDateTime(visit.startDatetime);
+    const visitType = visit.visitType?.name || 'Visit';
+    const location = visit.location?.display || 'Unknown location';
+    return `${visitType} - ${startDate} (${location})`;
+  };
 
   return (
     <div className={styles.container}>
@@ -272,49 +336,71 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
         </Tile>
 
         <Tile className={styles.card}>
-          <h3>{t('mostRecentVisit', 'Most Recent Visit')}</h3>
+          <h3>{t('visit', 'Visit')}</h3>
           {visits.length > 0 ? (
-            <div className={styles.tableContainer}>
-              <DataTable
-                rows={visits.map((v) => ({
-                  id: v.uuid,
-                  display: v.display,
-                  type: v.visitType?.name || '-',
-                  location: v.location?.display || '-',
-                  start: formatDateTime(v.startDatetime),
-                  end: v.stopDatetime ? formatDateTime(v.stopDatetime) : 'Ongoing',
-                }))}
-                headers={[
-                  { key: 'type', header: t('visitType', 'Type') },
-                  { key: 'location', header: t('location', 'Location') },
-                  { key: 'start', header: t('startDate', 'Start Date') },
-                  { key: 'end', header: t('endDate', 'End Date') },
-                ]}
-              >
-                {({ rows, headers, getHeaderProps, getRowProps }) => (
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        {headers.map((header) => (
-                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                            {header.header}
-                          </TableHeader>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {rows.map((row) => (
-                        <TableRow key={row.id} {...getRowProps({ row })}>
-                          {row.cells.map((cell) => (
-                            <TableCell key={cell.id}>{cell.value}</TableCell>
+            <>
+              <div className={styles.visitSelector}>
+                <Dropdown
+                  id="visit-selector"
+                  titleText={t('selectVisit', 'Select a visit')}
+                  label={t('selectVisitLabel', 'Choose a visit')}
+                  items={visits}
+                  itemToString={(visit: Visit) => formatVisitLabel(visit)}
+                  selectedItem={selectedVisit || undefined}
+                  onChange={({ selectedItem }) => {
+                    setSelectedVisitUuid(selectedItem?.uuid || null);
+                  }}
+                />
+              </div>
+              <div className={styles.tableContainer}>
+                <DataTable
+                  rows={
+                    selectedVisit
+                      ? [
+                          {
+                            id: selectedVisit.uuid,
+                            type: selectedVisit.visitType?.name || '-',
+                            location: selectedVisit.location?.display || '-',
+                            startDatetime: formatDateTime(selectedVisit.startDatetime),
+                            stopDatetime: selectedVisit.stopDatetime
+                              ? formatDateTime(selectedVisit.stopDatetime)
+                              : 'Ongoing',
+                          } as any,
+                        ]
+                      : []
+                  }
+                  headers={[
+                    { key: 'type', header: t('visitType', 'Type') },
+                    { key: 'location', header: t('location', 'Location') },
+                    { key: 'startDatetime', header: t('startDate', 'Start Date') },
+                    { key: 'stopDatetime', header: t('endDate', 'End Date') },
+                  ]}
+                >
+                  {({ rows, headers, getHeaderProps, getRowProps }) => (
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          {headers.map((header) => (
+                            <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                              {header.header}
+                            </TableHeader>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </DataTable>
-            </div>
+                      </TableHead>
+                      <TableBody>
+                        {rows.map((row) => (
+                          <TableRow key={row.id} {...getRowProps({ row })}>
+                            {row.cells.map((cell) => (
+                              <TableCell key={cell.id}>{cell.value}</TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </DataTable>
+              </div>
+            </>
           ) : (
             <p className={styles.emptyState}>{t('noVisits', 'No visits recorded')}</p>
           )}
@@ -322,12 +408,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
 
         <Tile className={styles.card}>
           <h3>
-            {t('diagnoses', 'Diagnoses')} ({sortedDiagnoses.length})
+            {t('diagnoses', 'Diagnoses')} ({filteredDiagnoses.length})
           </h3>
-          {sortedDiagnoses.length > 0 ? (
+          {filteredDiagnoses.length > 0 ? (
             <div className={styles.tableContainer}>
               <DataTable
-                rows={sortedDiagnoses.map((d) => ({
+                rows={filteredDiagnoses.map((d) => ({
                   id: d.uuid,
                   rank: d.rank,
                   diagnosis: getDiagnosisDisplay(d),
@@ -372,12 +458,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
 
         <Tile className={styles.card}>
           <h3>
-            {t('observations', 'Observations')} ({allObservations.length})
+            {t('observations', 'Observations')} ({filteredObservations.length})
           </h3>
-          {allObservations.length > 0 ? (
+          {filteredObservations.length > 0 ? (
             <div className={styles.tableContainer}>
               <DataTable
-                rows={allObservations.map((obs) => ({
+                rows={filteredObservations.map((obs) => ({
                   id: obs.uuid,
                   concept: obs.concept.display,
                   value: formatObservationValue(obs),
@@ -422,12 +508,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
 
         <Tile className={styles.card}>
           <h3>
-            {t('orders', 'Orders')} ({allOrders.length})
+            {t('orders', 'Orders')} ({filteredOrders.length})
           </h3>
-          {allOrders.length > 0 ? (
+          {filteredOrders.length > 0 ? (
             <div className={styles.tableContainer}>
               <DataTable
-                rows={allOrders.map((order) => ({
+                rows={filteredOrders.map((order) => ({
                   id: order.uuid,
                   concept: order.concept?.display || t('unknown', 'Unknown'),
                   dateActivated: formatDateTime(order.dateActivated),
