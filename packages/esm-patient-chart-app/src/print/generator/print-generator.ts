@@ -346,7 +346,40 @@ export async function printViaBrowser(elementId: string): Promise<void> {
 }
 
 export async function generatePrintableHTML(printData: PrintData): Promise<string> {
-  const { patient, visits, medications, allDiagnoses, allObservations, allOrders, generatedAt } = printData;
+  const {
+    patient,
+    visits,
+    medications,
+    allDiagnoses = [],
+    allObservations = [],
+    allOrders = [],
+    generatedAt,
+  } = printData;
+
+  // Helper to sort diagnoses by rank
+  const sortedDiagnoses = [...allDiagnoses].sort((a, b) => a.rank - b.rank);
+
+  // Use the first visit if visits array is provided (filtered visit)
+  const selectedVisit = visits.length > 0 ? visits[0] : null;
+
+  // Filter diagnoses, observations, and orders based on selected visit
+  const filteredDiagnoses = !selectedVisit
+    ? sortedDiagnoses
+    : sortedDiagnoses.filter((d) =>
+        new Set(selectedVisit.encounters.flatMap((enc) => enc.diagnoses.map((d) => d.uuid))).has(d.uuid),
+      );
+
+  const filteredObservations = !selectedVisit
+    ? allObservations
+    : allObservations.filter((o) =>
+        new Set(selectedVisit.encounters.flatMap((enc) => enc.obs.map((o) => o.uuid))).has(o.uuid),
+      );
+
+  const filteredOrders = !selectedVisit
+    ? allOrders
+    : allOrders.filter((o) =>
+        new Set(selectedVisit.encounters.flatMap((enc) => enc.orders.map((o) => o.uuid))).has(o.uuid),
+      );
 
   // Helper functions
   const formatDateTime = (dateString: string) => {
@@ -384,9 +417,6 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
     }
     return String(obs.value);
   };
-
-  // Sort diagnoses by rank
-  const sortedDiagnoses = [...allDiagnoses].sort((a, b) => a.rank - b.rank);
 
   return `
     <!DOCTYPE html>
@@ -463,7 +493,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
         </div>
 
         <div class="section">
-          <h2>Most Recent Visit</h2>
+          <h2>Visit</h2>
           <table>
             <thead>
               <tr>
@@ -475,19 +505,15 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             </thead>
             <tbody>
               ${
-                visits.length > 0
-                  ? visits
-                      .map(
-                        (visit) => `
+                selectedVisit
+                  ? `
                 <tr>
-                  <td>${visit.visitType?.name || '-'}</td>
-                  <td>${visit.location?.display || '-'}</td>
-                  <td>${formatDateTime(visit.startDatetime)}</td>
-                  <td>${visit.stopDatetime ? formatDateTime(visit.stopDatetime) : 'Ongoing'}</td>
+                  <td>${selectedVisit.visitType?.name || '-'}</td>
+                  <td>${selectedVisit.location?.display || '-'}</td>
+                  <td>${formatDateTime(selectedVisit.startDatetime)}</td>
+                  <td>${selectedVisit.stopDatetime ? formatDateTime(selectedVisit.stopDatetime) : 'Ongoing'}</td>
                 </tr>
-              `,
-                      )
-                      .join('')
+              `
                   : '<tr><td colspan="4" class="empty-state">No visits recorded</td></tr>'
               }
             </tbody>
@@ -495,7 +521,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
         </div>
 
         <div class="section">
-          <h2>Diagnoses (${sortedDiagnoses.length})</h2>
+          <h2>Diagnoses (${filteredDiagnoses.length})</h2>
           <table>
             <thead>
               <tr>
@@ -507,8 +533,8 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             </thead>
             <tbody>
               ${
-                sortedDiagnoses.length > 0
-                  ? sortedDiagnoses
+                filteredDiagnoses.length > 0
+                  ? filteredDiagnoses
                       .map(
                         (diagnosis) => `
                 <tr>
@@ -527,7 +553,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
         </div>
 
         <div class="section">
-          <h2>Observations (${allObservations.length})</h2>
+          <h2>Observations (${filteredObservations.length})</h2>
           <table>
             <thead>
               <tr>
@@ -539,8 +565,8 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             </thead>
             <tbody>
               ${
-                allObservations.length > 0
-                  ? allObservations
+                filteredObservations.length > 0
+                  ? filteredObservations
                       .map(
                         (obs) => `
                 <tr>
@@ -559,7 +585,7 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
         </div>
 
         <div class="section">
-          <h2>Orders (${allOrders.length})</h2>
+          <h2>Orders (${filteredOrders.length})</h2>
           <table>
             <thead>
               <tr>
@@ -570,8 +596,8 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             </thead>
             <tbody>
               ${
-                allOrders.length > 0
-                  ? allOrders
+                filteredOrders.length > 0
+                  ? filteredOrders
                       .map((order) => {
                         // Build dosage string similar to medications
                         const dosageParts = [];
