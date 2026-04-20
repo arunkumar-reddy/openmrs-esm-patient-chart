@@ -1,0 +1,46 @@
+name: Create release bundles
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable --inline-builds
+
+      - name: Build all workspace packages
+        run: yarn workspaces foreach --all --topological --exclude @arunkumar-reddy/esm-patient-chart run build
+
+      - name: Pack npm packages
+        run: |
+          mkdir -p release-artifacts
+          yarn workspaces foreach --all --topological --exclude @arunkumar-reddy/esm-patient-chart exec "npm pack --pack-destination $GITHUB_WORKSPACE/release-artifacts"
+
+      - name: Create GitHub release with package bundles
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: release-${{ github.sha }}
+          name: Release ${{ github.sha }}
+          body: Release bundles for commit ${{ github.sha }}
+          files: release-artifacts/*.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
