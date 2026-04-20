@@ -33,7 +33,44 @@ jobs:
       - name: Pack npm packages
         run: |
           mkdir -p release-artifacts
-          yarn workspaces foreach --all --topological --exclude @arunkumar-reddy/esm-patient-chart exec "npm pack --pack-destination $GITHUB_WORKSPACE/release-artifacts"
+          tmp_root=$(mktemp -d)
+          for pkg_dir in packages/*; do
+            if [ ! -f "$pkg_dir/package.json" ]; then
+              continue
+            fi
+
+            pkg_name=$(node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('$pkg_dir/package.json')); process.stdout.write(pkg.name||'')")
+            if [ "$pkg_name" = "@arunkumar-reddy/esm-patient-chart" ]; then
+              continue
+            fi
+
+            pkg_tmp="$tmp_root/$(basename "$pkg_dir")"
+            mkdir -p "$pkg_tmp"
+            cp -r "$pkg_dir/." "$pkg_tmp/"
+
+            node - <<'NODE'
+              const fs = require('fs');
+              const path = require('path');
+              const pkgFile = path.join(process.argv[1], 'package.json');
+              const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
+              if (pkg.name && pkg.name.startsWith('@arunkumar-reddy/')) {
+                pkg.name = pkg.name.replace('@arunkumar-reddy/', '@openmrs/');
+                fs.writeFileSync(pkgFile, JSON.stringify(pkg, null, 2) + '\n');
+              }
+            NODE
+            "$pkg_tmp"
+
+            (cd "$pkg_tmp" && npm pack --pack-destination "$GITHUB_WORKSPACE/release-artifacts")
+          done
+
+          cd release-artifacts
+          for f in *.tgz; do
+            if [[ "$f" == *"%40arunkumar-reddy"* ]]; then
+              mv -- "$f" "${f//%40arunkumar-reddy/%40openmrs}"
+            elif [[ "$f" == *"@arunkumar-reddy"* ]]; then
+              mv -- "$f" "${f//@arunkumar-reddy/@openmrs}"
+            fi
+          done
 
       - name: Create GitHub release with package bundles
         uses: softprops/action-gh-release@v1
