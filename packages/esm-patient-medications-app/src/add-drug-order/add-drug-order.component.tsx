@@ -123,7 +123,7 @@ const AddDrugOrder: React.FC<AddDrugOrderProps> = ({
            * t('updated', 'Updated')
            * t('discontinued', 'Discontinued')
            */
-          showOrderSuccessToast('@openmrs/ent-medications-app', [finalizedOrder]);
+          showOrderSuccessToast('@openmrs/esm-patient-medications-app', [finalizedOrder]);
           closeWorkspace({ discardUnsavedChanges: true });
         })
         .catch((error) => {
