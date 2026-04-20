@@ -43,9 +43,9 @@
     "uuid": "^8.3.2"
   },
   "peerDependencies": {
-    "@openmrs/esm-patient-common-lib": "*",
     "@carbon/react": "1.x",
     "@openmrs/esm-framework": "9.x",
+    "@openmrs/esm-patient-common-lib": "*",
     "dayjs": "1.x",
     "lodash-es": "4.x",
     "react": "18.x",

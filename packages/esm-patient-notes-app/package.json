@@ -1,5 +1,5 @@
 {
-  "name": "@openmrs/s-app",
+  "name": "@openmrs/esm-patient-notes-app",
   "version": "12.1.5",
   "license": "MPL-2.0",
   "description": "Patient notes microfrontend for the OpenMRS SPA",
@@ -40,8 +40,8 @@
     "lodash-es": "^4.17.23"
   },
   "peerDependencies": {
-    "@openmrs/esm-patient-common-lib": "workspace:*",
     "@openmrs/esm-framework": "9.x",
+    "@openmrs/esm-patient-common-lib": "workspace:*",
     "dayjs": "1.x",
     "react": "18.x",
     "react-i18next": "16.x",
