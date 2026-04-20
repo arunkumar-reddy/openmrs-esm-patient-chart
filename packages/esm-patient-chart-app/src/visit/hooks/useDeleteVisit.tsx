@@ -7,7 +7,7 @@ import {
   invalidateVisitAndEncounterData,
   invalidateVisitByUuid,
   usePatientChartStore,
-} from '@openmrs/ent-common-lib';
+} from '@openmrs/esm-patient-common-lib';
 import { deleteVisit, restoreVisit } from '../visits-widget/visit.resource';
 
 export function useDeleteVisit(activeVisit: Visit, onVisitDelete = () => {}, onVisitRestore = () => {}) {

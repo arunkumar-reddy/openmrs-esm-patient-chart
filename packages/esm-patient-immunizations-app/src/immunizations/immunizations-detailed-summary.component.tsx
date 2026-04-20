@@ -32,7 +32,7 @@ import {
   ErrorState,
   PatientChartPagination,
   usePatientChartStore,
-} from '@openmrs/ent-common-lib';
+} from '@openmrs/esm-patient-common-lib';
 import { immunizationFormSub, latestFirst, linkConfiguredSequences } from './utils';
 import { useImmunizations } from '../hooks/useImmunizations';
 import SequenceTable from './components/immunizations-sequence-table.component';

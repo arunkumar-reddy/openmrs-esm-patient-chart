@@ -15,7 +15,7 @@ import {
   showOrderSuccessToast,
   useMutatePatientOrders,
   useOrderBasket,
-} from '@openmrs/ent-common-lib';
+} from '@openmrs/esm-patient-common-lib';
 import { prepMedicationOrderPostData } from '../api/api';
 import { ordersEqual } from './drug-search/helpers';
 import { DrugOrderForm } from './drug-order-form.component';

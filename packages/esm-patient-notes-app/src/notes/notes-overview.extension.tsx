@@ -8,7 +8,7 @@ import {
   ErrorState,
   launchStartVisitPrompt,
   usePatientChartStore,
-} from '@openmrs/ent-common-lib';
+} from '@openmrs/esm-patient-common-lib';
 import { useVisitNotes } from './visit-notes.resource';
 import PaginatedNotes from './paginated-notes.component';
 import styles from './notes-overview.scss';

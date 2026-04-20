@@ -3,7 +3,7 @@ import classNames from 'classnames';
 import { useTranslation } from 'react-i18next';
 import { Button, ButtonSkeleton, SkeletonText, Tile } from '@carbon/react';
 import { ShoppingCartArrowUp } from '@carbon/react/icons';
-import { type DrugOrderBasketItem, useOrderBasket } from '@openmrs/ent-common-lib';
+import { type DrugOrderBasketItem, useOrderBasket } from '@openmrs/esm-patient-common-lib';
 import {
   ArrowRightIcon,
   ShoppingCartArrowDownIcon,
