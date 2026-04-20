@@ -44,7 +44,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@openmrs/ent-common-lib": "12.x",
+    "@openmrs/esm-patient-common-lib": "workspace:*",
     "@openmrs/esm-framework": "9.x",
     "dayjs": "1.x",
     "react": "18.x",
@@ -54,7 +54,7 @@
     "swr": "2.x"
   },
   "devDependencies": {
-    "@openmrs/ent-common-lib": "next",
+    "@openmrs/esm-patient-common-lib": "workspace:*",
     "openmrs": "next"
   }
 }
