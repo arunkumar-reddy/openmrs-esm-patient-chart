@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { DataTableSkeleton } from '@carbon/react';
-import { EmptyState, ErrorState, useLaunchWorkspaceRequiringVisit } from '@openmrs/on-lib';
+import { EmptyState, ErrorState, useLaunchWorkspaceRequiringVisit } from '@openmrs/ent-common-lib';
 import { useActivePatientOrders, usePastPatientOrders } from '../api';
 import { type AddDrugOrderWorkspaceProps } from '../add-drug-order/add-drug-order.workspace';
 import MedicationsDetailsTable from '../components/medications-details-table.component';
