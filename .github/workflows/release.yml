@@ -28,7 +28,7 @@ jobs:
         run: yarn install --immutable --inline-builds
 
       - name: Build all workspace packages
-        run: yarn workspaces foreach --all --topological --exclude @arunkumar-reddy/esm-patient-chart run build
+        run: yarn workspaces foreach --all --topological --exclude @openmrs/esm-patient-chart run build
 
       - name: Pack npm packages
         run: |
@@ -40,7 +40,7 @@ jobs:
             fi
 
             pkg_name=$(node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('$pkg_dir/package.json')); process.stdout.write(pkg.name||'')")
-            if [ "$pkg_name" = "@arunkumar-reddy/esm-patient-chart" ]; then
+            if [ "$pkg_name" = "@openmrs/esm-patient-chart" ]; then
               continue
             fi
 
@@ -58,7 +58,7 @@ jobs:
             if [[ "$f" == *"%40arunkumar-reddy"* ]]; then
               mv -- "$f" "${f//%40arunkumar-reddy/%40openmrs}"
             elif [[ "$f" == *"@arunkumar-reddy"* ]]; then
-              mv -- "$f" "${f//@arunkumar-reddy/@openmrs}"
+              mv -- "$f" "${f//@openmrs/@openmrs}"
             fi
           done
 

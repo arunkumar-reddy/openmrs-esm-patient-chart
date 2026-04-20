@@ -1,13 +1,13 @@
 import React from 'react';
 import { screen } from '@testing-library/react';
-import { type Order, useDrugOrderByUuid } from '@arunkumar-reddy/esm-patient-common-lib';
+import { type Order, useDrugOrderByUuid } from '@openmrs/ent-common-lib';
 import { renderWithSwr } from 'tools';
 import MedicationRecord from './medication-record.component';
 
 const mockUseDrugOrderByUuid = jest.mocked(useDrugOrderByUuid);
 
-jest.mock('@arunkumar-reddy/esm-patient-common-lib', () => {
-  const originalModule = jest.requireActual('@arunkumar-reddy/esm-patient-common-lib');
+jest.mock('@openmrs/ent-common-lib', () => {
+  const originalModule = jest.requireActual('@openmrs/ent-common-lib');
 
   return {
     ...originalModule,

@@ -7,7 +7,7 @@ import {
   type OrderBasketExtensionProps,
   useOrderBasket,
   type DrugOrderBasketItem,
-} from '@arunkumar-reddy/esm-patient-common-lib';
+} from '@openmrs/ent-common-lib';
 import { prepMedicationOrderPostData } from '../api/api';
 import OrderBasketItemTile from './order-basket-item-tile.component';
 import RxIcon from './rx-icon.component';

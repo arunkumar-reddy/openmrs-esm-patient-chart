@@ -45,7 +45,7 @@ import {
   invalidateVisitAndEncounterData,
   type PatientWorkspace2DefinitionProps,
   useAllowedFileExtensions,
-} from '@arunkumar-reddy/esm-patient-common-lib';
+} from '@openmrs/on-lib';
 import type { ConfigObject } from '../config-schema';
 import type { Concept, Diagnosis, DiagnosisPayload, VisitNotePayload } from '../types';
 import {

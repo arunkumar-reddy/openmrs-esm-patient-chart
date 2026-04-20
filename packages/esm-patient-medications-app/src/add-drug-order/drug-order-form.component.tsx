@@ -31,7 +31,7 @@ import type {
   MedicationFrequency,
   MedicationRoute,
   QuantityUnit,
-} from '@arunkumar-reddy/esm-patient-common-lib';
+} from '@openmrs/ent-common-lib';
 import {
   AddIcon,
   age,

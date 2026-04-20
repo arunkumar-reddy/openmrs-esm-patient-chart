@@ -15,7 +15,7 @@ import {
   useOrderTypes,
   usePatientOrders,
   useOrderBasket,
-} from '@arunkumar-reddy/esm-patient-common-lib';
+} from '@openmrs/on-lib';
 import { configSchema } from '../config-schema';
 import { mockOrders, mockSessionDataResponse } from '__mocks__';
 import { mockPatient } from 'tools';
@@ -37,8 +37,8 @@ jest.mock('react-to-print', () => ({
   useReactToPrint: jest.fn(),
 }));
 
-jest.mock('@arunkumar-reddy/esm-patient-common-lib', () => {
-  const originalModule = jest.requireActual('@arunkumar-reddy/esm-patient-common-lib');
+jest.mock('@openmrs/on-lib', () => {
+  const originalModule = jest.requireActual('@openmrs/on-lib');
 
   return {
     ...originalModule,

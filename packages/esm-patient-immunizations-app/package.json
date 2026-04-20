@@ -1,5 +1,5 @@
 {
-  "name": "@arunkumar-reddy/esm-patient-immunizations-app",
+  "name": "@openmrs/nizations-app",
   "version": "12.1.5",
   "license": "MPL-2.0",
   "description": "Patient immunizations microfrontend for the OpenMRS SPA",
@@ -44,7 +44,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@arunkumar-reddy/esm-patient-common-lib": "12.x",
+    "@openmrs/on-lib": "12.x",
     "@openmrs/esm-framework": "9.x",
     "dayjs": "1.x",
     "react": "18.x",
@@ -54,7 +54,7 @@
     "swr": "2.x"
   },
   "devDependencies": {
-    "@arunkumar-reddy/esm-patient-common-lib": "workspace:*",
+    "@openmrs/on-lib": "workspace:*",
     "openmrs": "next"
   }
 }

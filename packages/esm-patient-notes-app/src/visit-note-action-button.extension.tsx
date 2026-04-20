@@ -4,7 +4,7 @@ import { ActionMenuButton2, PenIcon } from '@openmrs/esm-framework';
 import {
   useStartVisitIfNeeded,
   type PatientChartWorkspaceActionButtonProps,
-} from '@arunkumar-reddy/esm-patient-common-lib';
+} from '@openmrs/ent-common-lib';
 
 /**
  * This button uses the patient chart store and MUST only be used

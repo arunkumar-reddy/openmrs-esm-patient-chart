@@ -1,7 +1,7 @@
 import React from 'react';
 import { screen, render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { type OrderBasketExtensionProps, type DrugOrderBasketItem } from '@arunkumar-reddy/esm-patient-common-lib';
+import { type OrderBasketExtensionProps, type DrugOrderBasketItem } from '@openmrs/ent-common-lib';
 import { getByTextWithMarkup } from 'tools';
 import { mockDrugSearchResultApiData, mockFhirPatient, mockPatientDrugOrdersApiData } from '__mocks__';
 import { getTemplateOrderBasketItem } from '../add-drug-order/drug-search/drug-search.resource';
@@ -9,8 +9,8 @@ import DrugOrderBasketPanel from './drug-order-basket-panel.extension';
 
 const mockUseOrderBasket = jest.fn();
 
-jest.mock('@arunkumar-reddy/esm-patient-common-lib', () => ({
-  ...jest.requireActual('@arunkumar-reddy/esm-patient-common-lib'),
+jest.mock('@openmrs/ent-common-lib', () => ({
+  ...jest.requireActual('@openmrs/ent-common-lib'),
   useOrderBasket: () => mockUseOrderBasket(),
 }));
 
