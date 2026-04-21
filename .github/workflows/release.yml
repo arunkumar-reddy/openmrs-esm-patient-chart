@@ -1,0 +1,73 @@
+name: Create release bundles
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable --inline-builds
+
+      - name: Build all workspace packages
+        run: yarn workspaces foreach --all --topological --exclude @openmrs/esm-patient-chart run build
+
+      - name: Pack npm packages
+        run: |
+          mkdir -p release-artifacts
+          tmp_root=$(mktemp -d)
+          for pkg_dir in packages/*; do
+            if [ ! -f "$pkg_dir/package.json" ]; then
+              continue
+            fi
+
+            pkg_name=$(node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('$pkg_dir/package.json')); process.stdout.write(pkg.name||'')")
+            if [ "$pkg_name" = "@openmrs/esm-patient-chart" ]; then
+              continue
+            fi
+
+            pkg_tmp="$tmp_root/$(basename "$pkg_dir")"
+            mkdir -p "$pkg_tmp"
+            cp -r "$pkg_dir/." "$pkg_tmp/"
+
+            node tools/rewrite-package-names.js "$pkg_tmp"
+
+            (cd "$pkg_tmp" && npm pack --pack-destination "$GITHUB_WORKSPACE/release-artifacts")
+          done
+
+          cd release-artifacts
+          for f in *.tgz; do
+            if [[ "$f" == *"%40arunkumar-reddy"* ]]; then
+              mv -- "$f" "${f//%40arunkumar-reddy/%40openmrs}"
+            elif [[ "$f" == *"@arunkumar-reddy"* ]]; then
+              mv -- "$f" "${f//@openmrs/@openmrs}"
+            fi
+          done
+
+      - name: Create GitHub release with package bundles
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: release-${{ github.sha }}
+          name: Release ${{ github.sha }}
+          body: Release bundles for commit ${{ github.sha }}
+          files: release-artifacts/*.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

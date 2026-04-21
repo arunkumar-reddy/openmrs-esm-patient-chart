@@ -5256,7 +5256,7 @@ __metadata:
     openmrs: "npm:next"
   peerDependencies:
     "@openmrs/esm-framework": 9.x
-    "@openmrs/esm-patient-common-lib": 12.x
+    "@openmrs/esm-patient-common-lib": "workspace:*"
     dayjs: 1.x
     react: 18.x
     react-i18next: 16.x
@@ -5296,7 +5296,7 @@ __metadata:
     openmrs: "npm:next"
   peerDependencies:
     "@openmrs/esm-framework": 9.x
-    "@openmrs/esm-patient-common-lib": 12.x
+    "@openmrs/esm-patient-common-lib": "workspace:*"
     dayjs: 1.x
     react: 18.x
     react-i18next: 16.x
@@ -5319,7 +5319,7 @@ __metadata:
     zod: "npm:^3.23.8"
   peerDependencies:
     "@openmrs/esm-framework": 9.x
-    "@openmrs/esm-patient-common-lib": 12.x
+    "@openmrs/esm-patient-common-lib": "workspace:*"
     dayjs: 1.x
     react: 18.x
     react-i18next: 16.x
@@ -5352,7 +5352,7 @@ __metadata:
     openmrs: "npm:next"
   peerDependencies:
     "@openmrs/esm-framework": 9.x
-    "@openmrs/esm-patient-common-lib": 12.x
+    "@openmrs/esm-patient-common-lib": "workspace:*"
     dayjs: 1.x
     react: 18.x
     react-i18next: 16.x
@@ -5372,7 +5372,7 @@ __metadata:
     openmrs: "npm:next"
   peerDependencies:
     "@openmrs/esm-framework": 9.x
-    "@openmrs/esm-patient-common-lib": 12.x
+    "@openmrs/esm-patient-common-lib": "workspace:*"
     dayjs: 1.x
     react: 18.x
     react-i18next: 16.x
@@ -5391,7 +5391,7 @@ __metadata:
     openmrs: "npm:next"
   peerDependencies:
     "@openmrs/esm-framework": 9.x
-    "@openmrs/esm-patient-common-lib": 12.x
+    "@openmrs/esm-patient-common-lib": "workspace:*"
     dayjs: 1.x
     react: 18.x
     react-i18next: 16.x
@@ -5411,7 +5411,7 @@ __metadata:
     openmrs: "npm:next"
   peerDependencies:
     "@openmrs/esm-framework": 9.x
-    "@openmrs/esm-patient-common-lib": 12.x
+    "@openmrs/esm-patient-common-lib": "workspace:*"
     dayjs: 1.x
     react: 18.x
     react-i18next: 16.x
