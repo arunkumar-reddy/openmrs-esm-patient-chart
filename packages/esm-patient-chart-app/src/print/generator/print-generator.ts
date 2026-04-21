@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import type { PrintData, Patient, Visit, Encounter, MedicationOrder } from '../api/print-api';
+import type { PrintData, Patient, Visit, Encounter, MedicationOrder, Vitals } from '../api/print-api';
 
 export class PDFGenerator {
   private doc: jsPDF;
@@ -46,6 +46,67 @@ export class PDFGenerator {
     return String(obs.value);
   }
 
+  private extractVitals(observations: any[]): Vitals {
+    const vitals: Vitals = {};
+    let systolic: number | undefined;
+    let diastolic: number | undefined;
+    let height: number | undefined;
+    let weight: number | undefined;
+
+    observations.forEach((obs) => {
+      const conceptUuid = obs.concept?.uuid;
+      const value = typeof obs.value === 'object' ? obs.value?.display : obs.value;
+      const numericValue = value !== null && value !== undefined ? Number(value) : undefined;
+
+      if (conceptUuid === '5085AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        systolic = numericValue;
+      }
+      if (conceptUuid === '5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        diastolic = numericValue;
+      }
+      if (conceptUuid === '5087AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.pulse = numericValue;
+      }
+      if (conceptUuid === '5088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.temperature = numericValue;
+      }
+      if (conceptUuid === '5089AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        weight = numericValue;
+      }
+      if (conceptUuid === '5090AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        height = numericValue;
+      }
+      if (conceptUuid === '5242AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.respiratoryRate = numericValue;
+      }
+    });
+
+    // Calculate BMI if we have both weight and height
+    if (weight != null && height != null && weight > 0 && height > 0) {
+      vitals.bmi = Number((weight / (height / 100) ** 2).toFixed(1));
+    }
+
+    // Set blood pressure if we have both systolic and diastolic
+    if (systolic != null && diastolic != null) {
+      vitals.bloodPressure = { systolic, diastolic };
+    }
+
+    return vitals;
+  }
+
+  private isVitalSign(obs: any): boolean {
+    const vitalSignUuids = [
+      '5085AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // systolic BP
+      '5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // diastolic BP
+      '5087AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // pulse
+      '5088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // temperature
+      '5089AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // weight
+      '5090AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // height
+      '5242AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // respiratory rate
+    ];
+    return vitalSignUuids.includes(obs.concept?.uuid);
+  }
+
   generatePDF(printData: PrintData): jsPDF {
     const { patient, visits, medications, allDiagnoses, allObservations, allOrders, generatedAt } = printData;
 
@@ -63,25 +124,32 @@ export class PDFGenerator {
     const formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
     this.doc.text(`Generated on: ${formattedDate}`, 14, 30);
 
-    this.addPatientSection(patient);
-    this.addVisitsSection(visits);
-    this.addDiagnosesSection(allDiagnoses);
-    this.addObservationsSection(allObservations);
-    this.addOrdersSection(allOrders);
-    this.addMedicationsSection(medications);
+    let yPos = 45;
+    yPos = this.addPatientSection(patient, visits, yPos);
+    const vitals = this.extractVitals(allObservations);
+    yPos = this.addVitalsSection(vitals, yPos);
+    yPos = this.addDiagnosesSection(allDiagnoses, yPos);
+    const nonVitalObservations = allObservations.filter((obs) => !this.isVitalSign(obs));
+    yPos = this.addObservationsSection(nonVitalObservations, yPos);
+    yPos = this.addOrdersSection(allOrders, yPos);
+    yPos = this.addMedicationsSection(medications, yPos);
 
     return this.doc;
   }
 
-  private addPatientSection(patient: Patient) {
+  private addPatientSection(patient: Patient, visits: Visit[], startY: number): number {
+    let currentY = startY;
+    if (currentY > 250) {
+      this.doc.addPage();
+      currentY = 20;
+    }
     this.doc.setFontSize(14);
-    this.doc.text('Patient Details', 14, 40);
+    this.doc.text('Patient Details', 14, currentY);
 
     this.doc.setFontSize(10);
-    const startY = 45;
-    let yPos = startY;
+    let yPos = currentY + 5;
 
-    this.doc.text(`Name: ${patient.display}`, 8, yPos);
+    this.doc.text(`Name: ${patient.person.preferredName.display}`, 8, yPos);
     yPos += 6;
 
     this.doc.text(`Gender: ${patient.person.gender}`, 8, yPos);
@@ -104,57 +172,109 @@ export class PDFGenerator {
       }
     });
 
-    this.doc.addPage();
+    // Add visit start date if visits are available
+    if (visits.length > 0) {
+      const visitDate = new Date(visits[0].startDatetime);
+      const formattedVisitDate = `${String(visitDate.getDate()).padStart(2, '0')}/${String(visitDate.getMonth() + 1).padStart(2, '0')}/${visitDate.getFullYear()}`;
+      this.doc.text(`Visit Date: ${formattedVisitDate}`, 8, yPos);
+      yPos += 6;
+    }
+
+    return yPos;
   }
 
-  private addVisitsSection(visits: Visit[]) {
+  private addVitalsSection(vitals: Vitals, startY: number): number {
+    let currentY = startY;
+    if (currentY > 250) {
+      this.doc.addPage();
+      currentY = 20;
+    }
     this.doc.setFontSize(14);
-    this.doc.text('Most Recent Visit', 14, 20);
+    this.doc.text('Vitals', 14, currentY);
 
     this.doc.setFontSize(10);
-    let yPos = 25;
+    let yPos = currentY + 5;
 
-    visits.forEach((visit, index) => {
-      if (index > 0 && yPos > 250) {
-        this.doc.addPage();
-        yPos = 20;
-      }
+    const hasVitals =
+      vitals.bloodPressure ||
+      vitals.pulse !== undefined ||
+      vitals.temperature !== undefined ||
+      vitals.height !== undefined ||
+      vitals.weight !== undefined ||
+      vitals.respiratoryRate !== undefined ||
+      vitals.bmi !== undefined;
 
-      this.doc.text(`Visit Type: ${visit.visitType?.name || '-'}`, 14, yPos);
-      yPos += 6;
-      this.doc.text(`Location: ${visit.location?.display || '-'}`, 14, yPos);
-      yPos += 6;
-      this.doc.text(`Start: ${this.formatDateTime(visit.startDatetime)}`, 14, yPos);
-      yPos += 6;
-      this.doc.text(`End: ${visit.stopDatetime ? this.formatDateTime(visit.stopDatetime) : 'Ongoing'}`, 14, yPos);
-      yPos += 6;
+    if (!hasVitals) {
+      this.doc.text('No vitals recorded', 14, yPos);
+      return yPos;
+    }
 
-      yPos += 4;
-    });
+    if (vitals.bloodPressure) {
+      this.doc.text(
+        `Blood Pressure: ${vitals.bloodPressure.systolic}/${vitals.bloodPressure.diastolic} mmHg`,
+        14,
+        yPos,
+      );
+      yPos += 6;
+    }
 
-    this.doc.addPage();
+    if (vitals.pulse !== undefined) {
+      this.doc.text(`Pulse: ${vitals.pulse} bpm`, 14, yPos);
+      yPos += 6;
+    }
+
+    if (vitals.temperature !== undefined) {
+      this.doc.text(`Temperature: ${vitals.temperature} °C`, 14, yPos);
+      yPos += 6;
+    }
+
+    if (vitals.height !== undefined) {
+      this.doc.text(`Height: ${vitals.height} cm`, 14, yPos);
+      yPos += 6;
+    }
+
+    if (vitals.weight !== undefined) {
+      this.doc.text(`Weight: ${vitals.weight} kg`, 14, yPos);
+      yPos += 6;
+    }
+
+    if (vitals.respiratoryRate !== undefined) {
+      this.doc.text(`Respiratory Rate: ${vitals.respiratoryRate} /min`, 14, yPos);
+      yPos += 6;
+    }
+
+    if (vitals.bmi !== undefined) {
+      this.doc.text(`BMI: ${vitals.bmi} kg/m²`, 14, yPos);
+      yPos += 6;
+    }
+
+    return yPos;
   }
 
-  private addDiagnosesSection(diagnoses: any[]) {
+  private addDiagnosesSection(diagnoses: any[], startY: number): number {
+    let currentY = startY;
+    if (currentY > 250) {
+      this.doc.addPage();
+      currentY = 20;
+    }
     this.doc.setFontSize(14);
-    this.doc.text('Diagnoses', 14, 20);
+    this.doc.text('Diagnoses', 14, currentY);
 
     this.doc.setFontSize(10);
-    let yPos = 25;
+    let yPos = currentY + 5;
 
     // Sort diagnoses by rank
     const sortedDiagnoses = [...diagnoses].sort((a, b) => a.rank - b.rank);
 
     if (sortedDiagnoses.length === 0) {
       this.doc.text('No diagnoses recorded', 14, yPos);
-      this.doc.addPage();
-      return;
+      return yPos;
     }
 
     sortedDiagnoses.forEach((diagnosis, index) => {
       if (index > 0 && yPos > 250) {
         this.doc.addPage();
-        yPos = 20;
+        yPos = currentY + 5;
       }
 
       const diagnosisText = this.getDiagnosisDisplay(diagnosis);
@@ -168,26 +288,30 @@ export class PDFGenerator {
       yPos += 2;
     });
 
-    this.doc.addPage();
+    return yPos;
   }
 
-  private addObservationsSection(observations: any[]) {
+  private addObservationsSection(observations: any[], startY: number): number {
+    let currentY = startY;
+    if (currentY > 250) {
+      this.doc.addPage();
+      currentY = 20;
+    }
     this.doc.setFontSize(14);
-    this.doc.text('Observations', 14, 20);
+    this.doc.text('Observations', 14, currentY);
 
     this.doc.setFontSize(10);
-    let yPos = 25;
+    let yPos = currentY + 5;
 
     if (observations.length === 0) {
       this.doc.text('No observations recorded', 14, yPos);
-      this.doc.addPage();
-      return;
+      return yPos;
     }
 
     observations.forEach((obs, index) => {
       if (index > 0 && yPos > 250) {
         this.doc.addPage();
-        yPos = 20;
+        yPos = currentY + 5;
       }
 
       this.doc.text(`Concept: ${obs.concept.display}`, 14, yPos);
@@ -204,26 +328,30 @@ export class PDFGenerator {
       yPos += 2;
     });
 
-    this.doc.addPage();
+    return yPos;
   }
 
-  private addOrdersSection(orders: any[]) {
+  private addOrdersSection(orders: any[], startY: number): number {
+    let currentY = startY;
+    if (currentY > 250) {
+      this.doc.addPage();
+      currentY = 20;
+    }
     this.doc.setFontSize(14);
-    this.doc.text('Orders', 14, 20);
+    this.doc.text('Orders', 14, currentY);
 
     this.doc.setFontSize(10);
-    let yPos = 25;
+    let yPos = currentY + 5;
 
     if (orders.length === 0) {
       this.doc.text('No orders recorded', 14, yPos);
-      this.doc.addPage();
-      return;
+      return yPos;
     }
 
     orders.forEach((order, index) => {
       if (index > 0 && yPos > 250) {
         this.doc.addPage();
-        yPos = 20;
+        yPos = currentY + 5;
       }
 
       this.doc.text(`Concept: ${order.concept?.display || 'Unknown'}`, 14, yPos);
@@ -268,20 +396,25 @@ export class PDFGenerator {
       yPos += 2;
     });
 
-    this.doc.addPage();
+    return yPos;
   }
 
-  private addMedicationsSection(medications: MedicationOrder[]) {
+  private addMedicationsSection(medications: MedicationOrder[], startY: number): number {
+    let currentY = startY;
+    if (currentY > 250) {
+      this.doc.addPage();
+      currentY = 20;
+    }
     this.doc.setFontSize(14);
-    this.doc.text('Medications', 14, 20);
+    this.doc.text('Medications', 14, currentY);
 
     this.doc.setFontSize(10);
-    let yPos = 25;
+    let yPos = currentY + 5;
 
     medications.forEach((medication, index) => {
       if (index > 0 && yPos > 250) {
         this.doc.addPage();
-        yPos = 20;
+        yPos = currentY + 5;
       }
 
       this.doc.text(`Medication: ${medication.concept?.display || 'Unknown'}`, 14, yPos);
@@ -297,6 +430,8 @@ export class PDFGenerator {
 
       yPos += 4;
     });
+
+    return yPos;
   }
 
   savePDF(filename: string): void {
@@ -381,6 +516,70 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
         new Set(selectedVisit.encounters.flatMap((enc) => enc.orders.map((o) => o.uuid))).has(o.uuid),
       );
 
+  // Vital sign concept UUIDs
+  const vitalSignUuids = new Set([
+    '5085AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // systolic BP
+    '5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // diastolic BP
+    '5087AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // pulse
+    '5088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // temperature
+    '5089AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // weight
+    '5090AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // height
+    '5242AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // respiratory rate
+  ]);
+
+  // Extract vitals from filtered observations
+  const extractVitals = (observations: typeof allObservations): Vitals => {
+    const vitals: Vitals = {};
+    let systolic: number | undefined;
+    let diastolic: number | undefined;
+    let height: number | undefined;
+    let weight: number | undefined;
+
+    observations.forEach((obs) => {
+      const conceptUuid = obs.concept?.uuid;
+      const value = typeof obs.value === 'object' ? obs.value?.display : obs.value;
+      const numericValue = value !== null && value !== undefined ? Number(value) : undefined;
+
+      if (conceptUuid === '5085AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        systolic = numericValue;
+      }
+      if (conceptUuid === '5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        diastolic = numericValue;
+      }
+      if (conceptUuid === '5087AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.pulse = numericValue;
+      }
+      if (conceptUuid === '5088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.temperature = numericValue;
+      }
+      if (conceptUuid === '5089AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        weight = numericValue;
+      }
+      if (conceptUuid === '5090AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        height = numericValue;
+      }
+      if (conceptUuid === '5242AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.respiratoryRate = numericValue;
+      }
+    });
+
+    // Calculate BMI if we have both weight and height
+    if (weight != null && height != null && weight > 0 && height > 0) {
+      vitals.bmi = Number((weight / (height / 100) ** 2).toFixed(1));
+    }
+
+    // Set blood pressure if we have both systolic and diastolic
+    if (systolic != null && diastolic != null) {
+      vitals.bloodPressure = { systolic, diastolic };
+    }
+
+    return vitals;
+  };
+
+  // Filter out vital sign observations from the observations list
+  const filteredNonVitalObservations = filteredObservations.filter((obs) => !vitalSignUuids.has(obs.concept?.uuid));
+  const filteredVitals = extractVitals(filteredObservations);
+
   // Helper functions
   const formatDateTime = (dateString: string) => {
     const d = new Date(dateString);
@@ -432,23 +631,40 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
             color: #333;
           }
           .section {
-            margin-bottom: 30px;
-            page-break-inside: avoid;
-          }
-          h1 {
-            color: #000;
-            border-bottom: 2px solid #000;
-            padding-bottom: 10px;
+            margin-bottom: 12px;
           }
           h2 {
             color: #444;
             border-bottom: 1px solid #ccc;
             padding-bottom: 5px;
           }
-          .patient-info {
+          .patient-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px 20px;
+            padding: 10px 12px;
             background-color: #f5f5f5;
-            padding: 15px;
             border-radius: 5px;
+            margin-top: 4px;
+          }
+          .patient-grid-item {
+            display: flex;
+            flex-direction: row;
+            align-items: baseline;
+            gap: 8px;
+          }
+          .patient-grid-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #777;
+            flex-shrink: 0;
+          }
+          .patient-grid-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            word-break: break-word;
           }
           table {
             width: 100%;
@@ -463,11 +679,6 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
           th {
             background-color: #f2f2f2;
           }
-          .meta-info {
-            font-size: 12px;
-            color: #666;
-            margin-top: 30px;
-          }
           .empty-state {
             color: #666;
             font-style: italic;
@@ -475,49 +686,144 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
         </style>
       </head>
       <body>
-        <h1>Patient Information</h1>
-        <p>Generated on: ${formatDateTime(generatedAt)}</p>
-        
         <div class="section">
           <h2>Patient Details</h2>
-          <div class="patient-info">
-            <p><strong>Name:</strong> ${patient.display}</p>
-            <p><strong>Gender:</strong> ${patient.person.gender}</p>
-            <p><strong>Age:</strong> ${patient.person.age}</p>
-            <p><strong>Birth Date:</strong> ${formatBirthDate(patient.person.birthdate)}</p>
+          <div class="patient-grid">
+            <div class="patient-grid-item">
+              <span class="patient-grid-label">Name:</span>
+              <span class="patient-grid-value">${patient.person.preferredName.display}</span>
+            </div>
+            <div class="patient-grid-item">
+              <span class="patient-grid-label">Patient ID:</span>
+              <span class="patient-grid-value">
+                ${
+                  patient.identifiers
+                    .find((id) => id.display.includes('OpenMRS ID'))
+                    ?.display.replace(/.*[=:]/, '')
+                    .trim() || '-'
+                }
+              </span>
+            </div>
+            <div class="patient-grid-item">
+              <span class="patient-grid-label">Gender:</span>
+              <span class="patient-grid-value">${patient.person.gender}</span>
+            </div>
+            <div class="patient-grid-item">
+              <span class="patient-grid-label">Age:</span>
+              <span class="patient-grid-value">${patient.person.age}</span>
+            </div>
+            <div class="patient-grid-item">
+              <span class="patient-grid-label">Birth Date:</span>
+              <span class="patient-grid-value">${formatBirthDate(patient.person.birthdate)}</span>
+            </div>
             ${patient.identifiers
-              .filter((id) => !id.display.includes('OpenMRS ID'))
-              .map((id) => `<p><strong>${id.display}:</strong> ${id.display}</p>`)
+              .filter((identifier) => !identifier.display.includes('OpenMRS ID'))
+              .map(
+                (identifier) => `
+            <div class="patient-grid-item">
+              <span class="patient-grid-label">${identifier.display}:</span>
+              <span class="patient-grid-value">${identifier.display}</span>
+            </div>`,
+              )
               .join('')}
+            ${
+              selectedVisit
+                ? `
+            <div class="patient-grid-item">
+              <span class="patient-grid-label">Visit Date:</span>
+              <span class="patient-grid-value">${formatDateTime(selectedVisit.startDatetime)}</span>
+            </div>`
+                : ''
+            }
           </div>
         </div>
 
         <div class="section">
-          <h2>Visit</h2>
+          <h2>Vitals</h2>
+          ${
+            filteredVitals.bloodPressure ||
+            filteredVitals.pulse !== undefined ||
+            filteredVitals.temperature !== undefined ||
+            filteredVitals.height !== undefined ||
+            filteredVitals.weight !== undefined ||
+            filteredVitals.respiratoryRate !== undefined ||
+            filteredVitals.bmi !== undefined
+              ? `
           <table>
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Location</th>
-                <th>Start Date</th>
-                <th>End Date</th>
+                <th>Vital Sign</th>
+                <th style="text-align: center;">Value</th>
               </tr>
             </thead>
             <tbody>
               ${
-                selectedVisit
+                filteredVitals.bloodPressure
                   ? `
                 <tr>
-                  <td>${selectedVisit.visitType?.name || '-'}</td>
-                  <td>${selectedVisit.location?.display || '-'}</td>
-                  <td>${formatDateTime(selectedVisit.startDatetime)}</td>
-                  <td>${selectedVisit.stopDatetime ? formatDateTime(selectedVisit.stopDatetime) : 'Ongoing'}</td>
-                </tr>
-              `
-                  : '<tr><td colspan="4" class="empty-state">No visits recorded</td></tr>'
+                  <td>Blood Pressure</td>
+                  <td style="text-align: center;">${filteredVitals.bloodPressure.systolic}/${filteredVitals.bloodPressure.diastolic}</td>
+                </tr>`
+                  : ''
+              }
+              ${
+                filteredVitals.pulse !== undefined
+                  ? `
+                <tr>
+                  <td>Pulse</td>
+                  <td style="text-align: center;">${filteredVitals.pulse} bpm</td>
+                </tr>`
+                  : ''
+              }
+              ${
+                filteredVitals.temperature !== undefined
+                  ? `
+                <tr>
+                  <td>Temperature</td>
+                  <td style="text-align: center;">${filteredVitals.temperature} °C</td>
+                </tr>`
+                  : ''
+              }
+              ${
+                filteredVitals.height !== undefined
+                  ? `
+                <tr>
+                  <td>Height</td>
+                  <td style="text-align: center;">${filteredVitals.height} cm</td>
+                </tr>`
+                  : ''
+              }
+              ${
+                filteredVitals.weight !== undefined
+                  ? `
+                <tr>
+                  <td>Weight</td>
+                  <td style="text-align: center;">${filteredVitals.weight} kg</td>
+                </tr>`
+                  : ''
+              }
+              ${
+                filteredVitals.respiratoryRate !== undefined
+                  ? `
+                <tr>
+                  <td>Respiratory Rate</td>
+                  <td style="text-align: center;">${filteredVitals.respiratoryRate} /min</td>
+                </tr>`
+                  : ''
+              }
+              ${
+                filteredVitals.bmi !== undefined
+                  ? `
+                <tr>
+                  <td>BMI</td>
+                  <td style="text-align: center;">${filteredVitals.bmi} kg/m²</td>
+                </tr>`
+                  : ''
               }
             </tbody>
-          </table>
+          </table>`
+              : '<p class="empty-state">No vitals recorded</p>'
+          }
         </div>
 
         <div class="section">
@@ -528,7 +834,6 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
                 <th>Rank</th>
                 <th>Diagnosis</th>
                 <th>Certainty</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -541,44 +846,39 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
                   <td>${diagnosis.rank}</td>
                   <td>${getDiagnosisDisplay(diagnosis)}</td>
                   <td>${diagnosis.certainty || '-'}</td>
-                  <td>${diagnosis.voided ? 'Voided' : 'Active'}</td>
                 </tr>
               `,
                       )
                       .join('')
-                  : '<tr><td colspan="4" class="empty-state">No diagnoses recorded</td></tr>'
+                  : '<tr><td colspan="3" class="empty-state">No diagnoses recorded</td></tr>'
               }
             </tbody>
           </table>
         </div>
 
         <div class="section">
-          <h2>Observations (${filteredObservations.length})</h2>
+          <h2>Observations (${filteredNonVitalObservations.length})</h2>
           <table>
             <thead>
               <tr>
-                <th>Concept</th>
-                <th>Value</th>
-                <th>Date & Time</th>
-                <th>Group Members</th>
+                <th>Observation</th>
+                <th style="text-align: center;">Value</th>
               </tr>
             </thead>
             <tbody>
               ${
-                filteredObservations.length > 0
-                  ? filteredObservations
+                filteredNonVitalObservations.length > 0
+                  ? filteredNonVitalObservations
                       .map(
                         (obs) => `
                 <tr>
                   <td>${obs.concept.display}</td>
-                  <td>${formatObservationValue(obs)}</td>
-                  <td>${formatDateTime(obs.obsDatetime)}</td>
-                  <td>${obs.groupMembers?.length || 0}</td>
+                  <td style="text-align: center;">${formatObservationValue(obs)}</td>
                 </tr>
               `,
                       )
                       .join('')
-                  : '<tr><td colspan="4" class="empty-state">No observations recorded</td></tr>'
+                  : '<tr><td colspan="2" class="empty-state">No observations recorded</td></tr>'
               }
             </tbody>
           </table>
@@ -676,9 +976,6 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
           </table>
         </div>
 
-        <div class="meta-info">
-          <p>Printed from OpenMRS Patient Chart</p>
-        </div>
       </body>
     </html>
   `;

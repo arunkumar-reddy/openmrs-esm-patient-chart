@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
@@ -20,8 +20,8 @@ import { Download, Printer } from '@carbon/react/icons';
 import { usePatientChartStore } from '@openmrs/esm-patient-common-lib';
 import { showToast } from '@openmrs/esm-framework';
 import { fetchPrintData } from './api/print-api';
-import type { PrintData, Diagnosis, Observation, EncounterOrder, Visit } from './api/print-api';
-import { PDFGenerator, printViaBrowser, generatePrintableHTML } from './generator/print-generator';
+import type { PrintData, Diagnosis, Observation, EncounterOrder, Visit, Vitals } from './api/print-api';
+import { printViaBrowser, generatePrintableHTML } from './generator/print-generator';
 import styles from './print-preview.scss';
 
 interface PrintPreviewProps {
@@ -38,17 +38,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
   const [selectedVisitUuid, setSelectedVisitUuid] = useState<string | null>(null);
 
   const containerId = 'print-preview-container';
-
-  // Format date as DD/MM/YYYY HH:MM
-  const formatGeneratedDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  };
 
   // Format birth date as DD/MM/YYYY
   const formatBirthDate = (dateString: string) => {
@@ -78,6 +67,76 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
     }
     return String(obs.value);
   };
+
+  // Concept UUIDs for vital signs (from vitals app config defaults)
+  const vitalSignConceptUuids = useMemo(() => {
+    return new Set([
+      '5085AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // systolic BP
+      '5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // diastolic BP
+      '5087AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // pulse
+      '5088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // temperature
+      '5089AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // weight
+      '5090AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // height
+      '5242AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // respiratory rate
+    ]);
+  }, []);
+
+  // Extract vitals from observations
+  const extractVitals = useCallback((observations: Observation[]): Vitals => {
+    const vitals: Vitals = {};
+    let systolic: number | undefined;
+    let diastolic: number | undefined;
+    let height: number | undefined;
+    let weight: number | undefined;
+
+    observations.forEach((obs) => {
+      const conceptUuid = obs.concept.uuid;
+      const value = typeof obs.value === 'object' ? obs.value?.display : obs.value;
+      const numericValue = value !== null && value !== undefined ? Number(value) : undefined;
+
+      if (conceptUuid === '5085AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        systolic = numericValue;
+      }
+      if (conceptUuid === '5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        diastolic = numericValue;
+      }
+      if (conceptUuid === '5087AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.pulse = numericValue;
+      }
+      if (conceptUuid === '5088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.temperature = numericValue;
+      }
+      if (conceptUuid === '5089AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        weight = numericValue;
+      }
+      if (conceptUuid === '5090AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        height = numericValue;
+      }
+      if (conceptUuid === '5242AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' && numericValue) {
+        vitals.respiratoryRate = numericValue;
+      }
+    });
+
+    // Calculate BMI if we have both weight and height
+    if (weight != null && height != null && weight > 0 && height > 0) {
+      vitals.bmi = Number((weight / (height / 100) ** 2).toFixed(1));
+    }
+
+    // Set blood pressure if we have both systolic and diastolic
+    if (systolic != null && diastolic != null) {
+      vitals.bloodPressure = { systolic, diastolic };
+    }
+
+    return vitals;
+  }, []);
+
+  // Check if an observation is a vital sign
+  const isVitalSign = useCallback(
+    (obs: Observation): boolean => {
+      return vitalSignConceptUuids.has(obs.concept.uuid);
+    },
+    [vitalSignConceptUuids],
+  );
 
   // Get diagnosis display text
   const getDiagnosisDisplay = (diagnosis: Diagnosis) => {
@@ -194,41 +253,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
     }
   };
 
-  const handleDownloadPDF = async () => {
-    if (!printData || !selectedVisit) return;
-
-    setGenerating(true);
-    try {
-      // Create filtered print data for the selected visit
-      const filteredPrintData = {
-        ...printData,
-        visits: [selectedVisit],
-        encounters: selectedVisit.encounters,
-        allDiagnoses: filteredDiagnoses,
-        allObservations: filteredObservations,
-        allOrders: filteredOrders,
-      };
-
-      const generator = new PDFGenerator();
-      const pdf = generator.generatePDF(filteredPrintData);
-      pdf.save(`patient-info-${patientUuid}.pdf`);
-      showToast({
-        kind: 'success',
-        title: t('downloadPdf', 'PDF downloaded successfully'),
-        description: t('downloadPdf', 'PDF downloaded successfully'),
-      });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'PDF generation failed';
-      showToast({
-        kind: 'error',
-        title: errorMessage,
-        description: errorMessage,
-      });
-    } finally {
-      setGenerating(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -284,6 +308,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
         new Set(selectedVisit.encounters.flatMap((enc) => enc.orders.map((o) => o.uuid))).has(o.uuid),
       );
 
+  // Extract vitals from filtered observations
+  const filteredVitals = selectedVisit ? extractVitals(filteredObservations) : {};
+
+  // Filter out vital sign observations from the observations list
+  const filteredNonVitalObservations = filteredObservations.filter((obs) => !isVitalSign(obs));
+
   // Format visit label for dropdown - simplified for easy scanning
   const formatVisitLabel = (visit: Visit) => {
     const startDate = formatDateTime(visit.startDatetime);
@@ -295,39 +325,41 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
   return (
     <div className={styles.container}>
       <div id={containerId} className={styles.previewContent}>
-        <h1 className={styles.title}>{t('patientInfo', 'Patient Information')}</h1>
-        <p className={styles.generatedAt}>
-          {t('generatedOn', 'Generated on:') + ' ' + formatGeneratedDate(printData.generatedAt)}
-        </p>
-
         <Tile className={styles.card}>
           <h3>{t('patientDetails', 'Patient Details')}</h3>
-          <div className={styles.patientInfo}>
-            <p>
-              <strong>{t('name', 'Name')}:</strong> {patient.person.preferredName.display}
-            </p>
-            <p>
-              <strong>{t('patientId', 'Patient ID')}:</strong>{' '}
-              {patient.identifiers
-                .find((id) => id.display.includes('OpenMRS ID'))
-                ?.display.replace(/.*[=:]/, '')
-                .trim() || '-'}
-            </p>
-            <p>
-              <strong>{t('gender', 'Gender')}:</strong> {patient.person.gender}
-            </p>
-            <p>
-              <strong>{t('age', 'Age')}:</strong> {patient.person.age}
-            </p>
-            <p>
-              <strong>{t('birthDate', 'Birth Date')}:</strong> {formatBirthDate(patient.person.birthdate)}
-            </p>
+          <div className={styles.patientGrid}>
+            <div className={styles.patientGridItem}>
+              <span className={styles.patientGridLabel}>{t('name', 'Name')}:</span>
+              <span className={styles.patientGridValue}>{patient.person.preferredName.display}</span>
+            </div>
+            <div className={styles.patientGridItem}>
+              <span className={styles.patientGridLabel}>{t('patientId', 'Patient ID')}:</span>
+              <span className={styles.patientGridValue}>
+                {patient.identifiers
+                  .find((id) => id.display.includes('OpenMRS ID'))
+                  ?.display.replace(/.*[=:]/, '')
+                  .trim() || '-'}
+              </span>
+            </div>
+            <div className={styles.patientGridItem}>
+              <span className={styles.patientGridLabel}>{t('gender', 'Gender')}:</span>
+              <span className={styles.patientGridValue}>{patient.person.gender}</span>
+            </div>
+            <div className={styles.patientGridItem}>
+              <span className={styles.patientGridLabel}>{t('age', 'Age')}:</span>
+              <span className={styles.patientGridValue}>{patient.person.age}</span>
+            </div>
+            <div className={styles.patientGridItem}>
+              <span className={styles.patientGridLabel}>{t('birthDate', 'Birth Date')}:</span>
+              <span className={styles.patientGridValue}>{formatBirthDate(patient.person.birthdate)}</span>
+            </div>
             {patient.identifiers
               .filter((identifier) => !identifier.display.includes('OpenMRS ID'))
               .map((identifier, index) => (
-                <p key={index}>
-                  <strong>{identifier.display}:</strong> {identifier.display}
-                </p>
+                <div key={index} className={styles.patientGridItem}>
+                  <span className={styles.patientGridLabel}>{identifier.display}:</span>
+                  <span className={styles.patientGridValue}>{identifier.display}</span>
+                </div>
               ))}
           </div>
         </Tile>
@@ -411,6 +443,110 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
         </Tile>
 
         <Tile className={styles.card}>
+          <h3>{t('vitals', 'Vitals')}</h3>
+          {filteredVitals.bloodPressure ||
+          filteredVitals.pulse !== undefined ||
+          filteredVitals.temperature !== undefined ||
+          filteredVitals.height !== undefined ||
+          filteredVitals.weight !== undefined ||
+          filteredVitals.respiratoryRate !== undefined ||
+          filteredVitals.bmi !== undefined ? (
+            <div className={styles.tableContainer}>
+              <DataTable
+                rows={
+                  [
+                    filteredVitals.bloodPressure
+                      ? {
+                          id: 'blood-pressure',
+                          observation: t('bloodPressure', 'Blood Pressure'),
+                          value: `${filteredVitals.bloodPressure.systolic}/${filteredVitals.bloodPressure.diastolic}`,
+                        }
+                      : null,
+                    filteredVitals.pulse !== undefined
+                      ? {
+                          id: 'pulse',
+                          observation: t('pulse', 'Pulse'),
+                          value: `${filteredVitals.pulse} bpm`,
+                        }
+                      : null,
+                    filteredVitals.temperature !== undefined
+                      ? {
+                          id: 'temperature',
+                          observation: t('temperature', 'Temperature'),
+                          value: `${filteredVitals.temperature} °C`,
+                        }
+                      : null,
+                    filteredVitals.height !== undefined
+                      ? {
+                          id: 'height',
+                          observation: t('height', 'Height'),
+                          value: `${filteredVitals.height} cm`,
+                        }
+                      : null,
+                    filteredVitals.weight !== undefined
+                      ? {
+                          id: 'weight',
+                          observation: t('weight', 'Weight'),
+                          value: `${filteredVitals.weight} kg`,
+                        }
+                      : null,
+                    filteredVitals.respiratoryRate !== undefined
+                      ? {
+                          id: 'respiratory-rate',
+                          observation: t('respiratoryRate', 'Respiratory Rate'),
+                          value: `${filteredVitals.respiratoryRate} /min`,
+                        }
+                      : null,
+                    filteredVitals.bmi !== undefined
+                      ? {
+                          id: 'bmi',
+                          observation: t('bmi', 'BMI'),
+                          value: `${filteredVitals.bmi} kg/m²`,
+                        }
+                      : null,
+                  ].filter(Boolean) as Array<{ id: string; observation: string; value: string }>
+                }
+                headers={[
+                  { key: 'observation', header: t('observation', 'Observation') },
+                  { key: 'value', header: t('value', 'Value') },
+                ]}
+              >
+                {({ rows, headers, getHeaderProps, getRowProps }) => (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                            <span
+                              style={{ display: 'block', textAlign: header.key === 'value' ? 'center' : undefined }}
+                            >
+                              {header.header}
+                            </span>
+                          </TableHeader>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} {...getRowProps({ row })}>
+                          {row.cells.map((cell, index) => (
+                            <TableCell key={cell.id} style={{ textAlign: index === 1 ? 'center' : undefined }}>
+                              {cell.value}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </div>
+          ) : (
+            <p className={styles.emptyState}>{t('noVitals', 'No vitals recorded')}</p>
+          )}
+        </Tile>
+
+        <Tile className={styles.card}>
           <h3>
             {t('diagnoses', 'Diagnoses')} ({filteredDiagnoses.length})
           </h3>
@@ -419,16 +555,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
               <DataTable
                 rows={filteredDiagnoses.map((d) => ({
                   id: d.uuid,
-                  rank: d.rank,
                   diagnosis: getDiagnosisDisplay(d),
                   certainty: d.certainty || '-',
-                  voided: d.voided ? t('voided', 'Voided') : t('active', 'Active'),
                 }))}
                 headers={[
-                  { key: 'rank', header: t('rank', 'Rank') },
                   { key: 'diagnosis', header: t('diagnosis', 'Diagnosis') },
                   { key: 'certainty', header: t('certainty', 'Certainty') },
-                  { key: 'voided', header: t('status', 'Status') },
                 ]}
               >
                 {({ rows, headers, getHeaderProps, getRowProps }) => (
@@ -462,23 +594,21 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
 
         <Tile className={styles.card}>
           <h3>
-            {t('observations', 'Observations')} ({filteredObservations.length})
+            {t('observations', 'Observations')} ({filteredNonVitalObservations.length})
           </h3>
-          {filteredObservations.length > 0 ? (
+          {filteredNonVitalObservations.length > 0 ? (
             <div className={styles.tableContainer}>
               <DataTable
-                rows={filteredObservations.map((obs) => ({
-                  id: obs.uuid,
-                  concept: obs.concept.display,
-                  value: formatObservationValue(obs),
-                  datetime: formatDateTime(obs.obsDatetime),
-                  groupMembers: obs.groupMembers?.length || 0,
-                }))}
+                rows={filteredNonVitalObservations
+                  .filter((obs) => obs.value !== null && obs.value !== undefined && formatObservationValue(obs) !== '-')
+                  .map((obs) => ({
+                    id: obs.uuid,
+                    observation: obs.concept.display,
+                    value: formatObservationValue(obs),
+                  }))}
                 headers={[
-                  { key: 'concept', header: t('concept', 'Concept') },
+                  { key: 'observation', header: t('observation', 'Observation') },
                   { key: 'value', header: t('value', 'Value') },
-                  { key: 'datetime', header: t('obsDatetime', 'Date & Time') },
-                  { key: 'groupMembers', header: t('groupMembers', 'Group Members') },
                 ]}
               >
                 {({ rows, headers, getHeaderProps, getRowProps }) => (
@@ -487,7 +617,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
                       <TableRow>
                         {headers.map((header) => (
                           <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                            {header.header}
+                            <span
+                              style={{ display: 'block', textAlign: header.key === 'value' ? 'center' : undefined }}
+                            >
+                              {header.header}
+                            </span>
                           </TableHeader>
                         ))}
                       </TableRow>
@@ -495,8 +629,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
                     <TableBody>
                       {rows.map((row) => (
                         <TableRow key={row.id} {...getRowProps({ row })}>
-                          {row.cells.map((cell) => (
-                            <TableCell key={cell.id}>{cell.value}</TableCell>
+                          {row.cells.map((cell, index) => (
+                            <TableCell key={cell.id} style={{ textAlign: index === 1 ? 'center' : undefined }}>
+                              {cell.value}
+                            </TableCell>
                           ))}
                         </TableRow>
                       ))}
@@ -559,12 +695,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ patientUuid, onClose }) => 
         </Tile>
       </div>
 
-      <div className={styles.actions} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <div className={styles.actions}>
         <Button onClick={handlePrintBrowser} disabled={generating} renderIcon={Printer}>
           {generating ? t('printing', 'Printing...') : t('printBrowser', 'Print (Browser)')}
-        </Button>
-        <Button onClick={handleDownloadPDF} disabled={generating} renderIcon={Download} kind="secondary">
-          {t('downloadPdf', 'Download PDF')}
         </Button>
       </div>
     </div>
