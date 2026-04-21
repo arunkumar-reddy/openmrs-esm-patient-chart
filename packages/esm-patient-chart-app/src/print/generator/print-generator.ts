@@ -944,38 +944,6 @@ export async function generatePrintableHTML(printData: PrintData): Promise<strin
           </table>
         </div>
 
-        <div class="section">
-          <h2>Medications (${medications.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Medication</th>
-                <th>Dosage</th>
-                <th>Started</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                medications.length > 0
-                  ? medications
-                      .map(
-                        (med) => `
-                <tr>
-                  <td>${med.concept?.display || 'Unknown'}</td>
-                  <td>${med.dosage || '-'}</td>
-                  <td>${new Date(med.dateActivated).toLocaleDateString()}</td>
-                  <td>${med.status}</td>
-                </tr>
-              `,
-                      )
-                      .join('')
-                  : '<tr><td colspan="4" class="empty-state">No medications prescribed</td></tr>'
-              }
-            </tbody>
-          </table>
-        </div>
-
       </body>
     </html>
   `;
